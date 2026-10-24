@@ -1,0 +1,128 @@
+/* Colours come from the mockup (maquette v2). Flow colours follow the cahier des charges, 2.2. */
+:root {
+  --ink: #1e2a26;
+  --ink-soft: #4d5c56;
+  --surface: #ffffff;
+  --paper: #f4f2ec;
+  --line: #d9d6cc;
+  --accent: #24584a;
+  --accent-ink: #ffffff;
+  --flow-dry: #d23b2e;
+  --flow-very-low: #ef8a17;
+  --flow-normal: #2a56c6;
+  --flow-high: #7d36a8;
+  --flow-unknown: #b9b6ad;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e6ece6;
+    --ink-soft: #a8b5ae;
+    --surface: #18201d;
+    --paper: #101614;
+    --line: #2e3a35;
+    --accent: #6fbf9f;
+    --accent-ink: #0e1a15;
+    --flow-dry: #f0594b;
+    --flow-very-low: #f6a03a;
+    --flow-normal: #5f86ec;
+    --flow-high: #b06ad8;
+    --flow-unknown: #56605b;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar h1 { font-size: 18px; margin: 0 auto 0 0; }
+.modes { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.modes button { border: 0; padding: 6px 12px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.modes button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.actions { display: flex; gap: 8px; }
+
+.btn { display: inline-block; padding: 7px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: inherit; font: inherit; text-decoration: none; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+main { flex: 1; display: flex; }
+.view { flex: 1; position: relative; }
+/* Views set their own display; keep `hidden` stronger than any of them. */
+[hidden] { display: none !important; }
+
+/* Map view */
+#map { position: absolute; inset: 0; }
+.legend { position: absolute; z-index: 500; left: 12px; top: 12px; padding: 10px 12px; background: var(--surface); border-radius: 8px; font-size: 13px; }
+.legend h2 { font-size: 13px; margin: 0 0 6px; }
+.legend ul { list-style: none; margin: 0; padding: 0; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+.legend i.spring { background: #3aa0e0; }
+.legend i.group { background: var(--ink); color: var(--surface); font: 700 9px/12px system-ui, sans-serif; text-align: center; }
+.timebar { position: absolute; z-index: 500; left: 12px; right: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 8px 12px; background: var(--surface); border-radius: 8px; }
+
+.pin span { display: block; width: 22px; height: 22px; border-radius: 50%; background: var(--c); border: 2px solid var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / 0.35); }
+.pin.group span { display: grid; place-items: center; background: var(--ink); color: var(--surface); outline: 3px solid var(--c); font-size: 12px; font-weight: 700; }
+.spring { width: 11px; height: 11px; border-radius: 50%; background: #3aa0e0; border: 2px solid var(--surface); }
+.basin { fill: var(--accent); fill-opacity: 0.04; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+.river { stroke: #3a7fd0; stroke-width: 2; fill: none; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.sheet-reading img { width: 100%; border-radius: 6px; }
+.sheet-reading .who { font-weight: 600; }
+.sheet-reading .when, .sheet-group .count { color: var(--ink-soft); font-size: 13px; }
+.sheet-group .track { display: flex; align-items: center; gap: 4px; }
+.sheet-group .nav { border: 0; background: none; font-size: 22px; cursor: pointer; color: inherit; }
+.sheet-group .dots b { display: inline-block; width: 8px; height: 8px; margin: 0 2px; border-radius: 50%; background: var(--c); opacity: 0.4; }
+.sheet-group .dots b.on { opacity: 1; }
+
+/* River view */
+#view-river { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto 1fr; }
+.river-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 10px 16px; }
+.tally { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; }
+.tally i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; background: var(--c); }
+#river-plan { width: 100%; height: 100%; }
+.track { fill: none; stroke-linecap: round; }
+.track.unknown { stroke-dasharray: 2 6; }
+.station circle { fill: var(--surface); stroke: var(--ink); stroke-width: 3; cursor: pointer; }
+.station.selected circle { stroke: var(--accent); stroke-width: 5; }
+.station .name { font-size: 14px; fill: var(--ink); }
+.station .meta, .river-name { font-size: 11px; fill: var(--ink-soft); }
+.river-name.trunk { font-size: 14px; font-weight: 700; fill: var(--ink); }
+.cell.now { stroke: var(--ink); stroke-width: 1; }
+.station-card { padding: 16px; background: var(--surface); border-left: 1px solid var(--line); overflow: auto; }
+.station-card .now { border-left: 6px solid var(--c); padding-left: 10px; margin: 12px 0; font-weight: 600; }
+.station-card .now small { display: block; font-weight: 400; color: var(--ink-soft); }
+.station-card .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0; }
+.station-card .thumbs a { border-bottom: 4px solid var(--c); }
+.station-card .thumbs img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Dialogs */
+dialog { border: 0; border-radius: 12px; padding: 0; width: min(520px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); }
+dialog form { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+dialog h2 { margin: 0; }
+dialog label { display: flex; flex-direction: column; gap: 4px; }
+dialog label.row { flex-direction: row; align-items: center; }
+dialog input[type="text"], dialog textarea, dialog select, dialog input[type="date"] { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: inherit; }
+.flows { display: grid; gap: 6px; border: 0; padding: 0; }
+.flows label { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-left: 6px solid var(--c); border-radius: 6px; }
+.flows small { flex-basis: 100%; color: var(--ink-soft); }
+.buttons { display: flex; justify-content: flex-end; gap: 8px; }
+.msg.error { padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--flow-dry) 12%, transparent); }
+.msg.fatal { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 1000; }
+
+@media (max-width: 760px) {
+  #view-river { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
+  #river-plan { height: 60vh; }
+  .station-card { border-left: 0; border-top: 1px solid var(--line); }
+}

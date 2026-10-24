@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Eaux de Saurat</title>
+    <meta name="description" content="Relevés coopératifs du débit des cours d'eau du bassin versant de Saurat (Ariège)." />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Eaux de Saurat</h1>
+      <nav class="modes" aria-label="Vue">
+        <button type="button" data-mode="map" aria-pressed="true">Carte</button>
+        <button type="button" data-mode="river" aria-pressed="false">Fil de l'eau</button>
+      </nav>
+      <div class="actions">
+        <button type="button" class="btn primary" id="btn-publish">Publier des photos</button>
+        <button type="button" class="btn" id="btn-export">Extraire des données</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="view-map" class="view">
+        <div id="map" aria-label="Carte du bassin versant"></div>
+        <aside class="legend" id="legend"></aside>
+        <div class="timebar" id="timebar"></div>
+      </section>
+
+      <section id="view-river" class="view" hidden>
+        <div class="river-head">
+          <strong id="river-month"></strong>
+          <div id="river-tally" class="tally"></div>
+          <button type="button" class="btn" id="river-play">Faire défiler</button>
+          <input type="range" id="river-month-input" aria-label="Mois affiché" />
+        </div>
+        <svg id="river-plan" role="img" aria-label="Plan schématique des cours d'eau"></svg>
+        <aside id="station-card" class="station-card"></aside>
+      </section>
+    </main>
+
+    <dialog id="sheet"></dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
