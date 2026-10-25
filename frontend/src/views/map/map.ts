@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { fetchBasin, fetchSprings, fetchWatercourseLines } from "../../api";
 import { FLOW, FLOW_LEVELS, UNKNOWN_COLOUR, flowColour } from "../../domain/flow";
 import { groupForMap } from "../../domain/grouping";
-import { springLevel, watercourseLevels } from "../../domain/mapLevels";
+import { headPieces, later, springLevels, watercourseLevels } from "../../domain/mapLevels";
 import { monthIndex } from "../../domain/months";
 import { $, esc, formatDate } from "../../html";
 import { type AppState, subscribe } from "../../state";
@@ -33,6 +33,9 @@ const pinIcon = (colour: string, count = 1) =>
 let map: L.Map;
 let rivers: Awaited<ReturnType<typeof fetchWatercourseLines>>;
 let springs: Awaited<ReturnType<typeof fetchSprings>>;
+// Spring heads ("Tête de cours d'eau") and the piece of watercourse each one starts: a photo there colours that piece.
+let heads: ReturnType<typeof headPieces<(typeof springs.features)[number]>>;
+const springAt = (f: (typeof springs.features)[number]) => ({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] });
 const geoLayer = L.layerGroup();
 const readingLayer = L.layerGroup();
 
@@ -62,6 +65,14 @@ export async function mountMap(): Promise<L.Map> {
   const [basin, riverLines, springPoints] = await Promise.all([fetchBasin(), fetchWatercourseLines(), fetchSprings()]);
   rivers = riverLines;
   springs = springPoints;
+  heads = headPieces(
+    springs.features.filter((f) => f.properties.kind.startsWith("Tête de cours d'eau")),
+    springAt,
+    rivers.features.map((f) => ({
+      id: f.properties.id,
+      pieces: f.geometry.coordinates.map((line: number[][]) => line.map(([lng, lat]) => ({ lat, lng }))),
+    })),
+  );
   // Veil everything outside the catchment, then draw its edge over a white halo so it reads on any tile.
   const outlines = basin.features.flatMap((f) => f.geometry.coordinates.map((polygon: number[][][]) => polygon[0].map(([lng, lat]) => [lat, lng])));
   const world = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
@@ -101,6 +112,7 @@ function render(state: AppState): void {
 function renderWater(visible: Reading[], state: AppState): void {
   geoLayer.clearLayers();
   const levels = watercourseLevels(visible, state.stations);
+  const springLevel = springLevels(visible, springs.features, springAt);
   const shown = { ...rivers, features: state.hideEmpty ? rivers.features.filter((f) => levels.has(f.properties.id)) : rivers.features };
   // A white casing under every watercourse lifts it off the tiles.
   L.geoJSON(shown as any, { interactive: false, style: { className: "river-halo" } }).addTo(geoLayer);
@@ -115,12 +127,23 @@ function renderWater(visible: Reading[], state: AppState): void {
       );
     },
   }).addTo(geoLayer);
-  const springsShown = state.hideEmpty
-    ? springs.features.filter((f) => springLevel(visible, { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] }))
-    : springs.features;
+  // The piece a photographed spring head starts, over its watercourse, with the latest of both readings.
+  for (const [head, { id, piece }] of heads) {
+    const reading = springLevel.get(head);
+    const river = rivers.features.find((f) => f.properties.id === id);
+    if (!reading || !river) continue;
+    const level = later(levels.get(id), reading);
+    const line = river.geometry.coordinates[piece].map(([lng, lat]: number[]) => [lat, lng]);
+    L.polyline(line, { interactive: false, className: "river-halo" }).addTo(geoLayer);
+    L.polyline(line, { className: `river ${level.flowLevel}` })
+      .bindTooltip(esc(river.properties.name), { sticky: true })
+      .bindPopup(`<h3>${esc(river.properties.name)}</h3><dl><dt>Débit</dt><dd>${levelText(level)}</dd></dl>`)
+      .addTo(geoLayer);
+  }
+  const springsShown = state.hideEmpty ? springs.features.filter((f) => springLevel.has(f)) : springs.features;
   L.geoJSON({ ...springs, features: springsShown } as any, {
     pointToLayer: (feature, latlng) => {
-      const reading = springLevel(visible, latlng);
+      const reading = springLevel.get(feature as (typeof springs.features)[number]);
       return L.marker(latlng, {
         icon: L.divIcon({ className: "spring", html: `<span style="--c:${flowColour(reading?.flowLevel)}"></span>`, iconSize: [12, 12] }),
         title: `Source : ${levelText(reading)}`,

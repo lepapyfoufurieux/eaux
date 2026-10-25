@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Reading, Station } from "../types";
-import { springLevel, watercourseLevels } from "./mapLevels";
+import { headPieces, springLevels, watercourseLevels } from "./mapLevels";
 
 const reading = (date: string, station: string | null, lat = 42.87): Reading => ({
   id: date,
@@ -35,10 +35,34 @@ describe("watercourseLevels", () => {
   });
 });
 
-describe("springLevel", () => {
-  it("uses the latest reading within 400 m and ignores farther ones", () => {
-    const readings = [reading("2026-05-01", null, 42.871), reading("2026-05-02", null, 42.872), reading("2026-06-01", null, 42.9)];
-    expect(springLevel(readings, { lat: 42.87, lng: 1.52 })?.id).toBe("2026-05-02");
-    expect(springLevel(readings, { lat: 43.5, lng: 1.52 })).toBeNull();
+describe("springLevels", () => {
+  // 0.0001° of latitude is about 11 m.
+  const spring = (lat: number) => ({ lat, lng: 1.52 });
+  const at = (s: { lat: number; lng: number }) => s;
+
+  it("uses the latest reading within 50 m and ignores farther ones", () => {
+    const here = spring(42.87);
+    const readings = [reading("2026-05-01", null, 42.8701), reading("2026-05-02", null, 42.8702), reading("2026-06-01", null, 42.871)];
+    expect(springLevels(readings, [here], at).get(here)?.id).toBe("2026-05-02");
+  });
+
+  it("colours only the nearest spring, not its neighbours", () => {
+    const [near, neighbour] = [spring(42.87), spring(42.8703)];
+    const levels = springLevels([reading("2026-05-01", null, 42.87)], [neighbour, near], at);
+    expect(levels.has(near)).toBe(true);
+    expect(levels.has(neighbour)).toBe(false);
+  });
+});
+
+describe("headPieces", () => {
+  it("links a spring head to the line that ends next to it", () => {
+    const head = { lat: 42.87, lng: 1.52 };
+    const p = (lat: number) => ({ lat, lng: 1.52 });
+    const watercourses = [
+      { id: 1, pieces: [[p(42.86), p(42.865)], [p(42.8702), p(42.88)]] },
+      { id: 2, pieces: [[p(42.8706), p(42.86)]] },
+    ];
+    expect(headPieces([head], (h) => h, watercourses).get(head)).toEqual({ id: 1, piece: 1 });
+    expect(headPieces([p(42.9)], (h) => h, watercourses).size).toBe(0);
   });
 });
