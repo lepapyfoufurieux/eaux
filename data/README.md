@@ -26,6 +26,10 @@ python data/prepare_basin.py    # needs numpy and access to data.geopf.fr; cache
 
 The script stops if the outline misses part of the Saurat or takes in Tarascon. `backend/geo/tests/test_basin.py` checks the committed file the same way after import.
 
+## Updating everything
+
+`python data/update_data.py` clears `data/raw/`, runs `prepare_basin.py`, `prepare_layers.py` and `download_tiles.py`, loads the result into the running Docker site, then lists the changed files to review and commit. Without Python, `tester-le-site/mettre-a-jour-donnees-*` do the same in a container.
+
 ## Map tiles
 
 The map shows only the valley and its surroundings, from a local copy of the Plan IGN tiles (Licence Ouverte, credited "© IGN"):

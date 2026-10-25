@@ -1,3 +1,5 @@
 # Batch files break on LF line endings; shell scripts break on CRLF.
 *.bat text eol=crlf
 *.sh text eol=lf
+# Written by the data scripts with LF on every system; without this, Windows checkouts show them as changed.
+*.geojson text eol=lf
