@@ -13,6 +13,11 @@ const PLAY_INTERVAL_MS = 900;
 let layout: PlanLayout | null = null;
 let layoutKey = "";
 let timer: number | undefined;
+/** Part of the plan in view (SVG units); pinching, dragging and the wheel change it. */
+let view = { x: 0, y: 0, w: 0, h: 0 };
+// Clicks that end a drag or a pinch must not select a station.
+let dragged = false;
+const MAX_ZOOM = 6;
 
 /** The schematic "Fil de l'eau" view: every station coloured by its latest reading at the chosen month. */
 export function mountRiverView(): void {
@@ -20,7 +25,9 @@ export function mountRiverView(): void {
   const slider = $<HTMLInputElement>("#river-month-input");
   const play = $<HTMLButtonElement>("#river-play");
 
+  mountZoom(plan);
   plan.addEventListener("click", (event) => {
+    if (dragged) return;
     const code = (event.target as Element).closest<SVGElement>("[data-station]")?.dataset.station;
     if (code) update({ selectedStation: code });
   });
@@ -35,6 +42,67 @@ export function mountRiverView(): void {
   play.addEventListener("click", togglePlay);
 
   subscribe(render);
+}
+
+/** Zoom and pan inside the plan only: two fingers pinch, one finger or the mouse drags, the wheel zooms. */
+function mountZoom(svg: SVGSVGElement): void {
+  const pointers = new Map<number, { x: number; y: number }>();
+  let moved = 0;
+  // Client pixels to SVG units, at the current zoom.
+  const toSvg = (x: number, y: number) => new DOMPoint(x, y).matrixTransform(svg.getScreenCTM()!.inverse());
+  const apply = () => {
+    if (!layout) return;
+    const { width, height } = layout;
+    view.w = Math.min(width, Math.max(width / MAX_ZOOM, view.w));
+    view.h = view.w * (height / width);
+    view.x = Math.min(width - view.w, Math.max(0, view.x));
+    view.y = Math.min(height - view.h, Math.max(0, view.y));
+    svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+  };
+  const zoomAt = (clientX: number, clientY: number, factor: number) => {
+    const p = toSvg(clientX, clientY);
+    const w = Math.min(layout!.width, Math.max(layout!.width / MAX_ZOOM, view.w / factor));
+    const k = w / view.w;
+    view = { x: p.x - (p.x - view.x) * k, y: p.y - (p.y - view.y) * k, w, h: view.h * k };
+    apply();
+  };
+
+  svg.addEventListener("pointerdown", (event) => {
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.size === 1) moved = 0;
+    if (pointers.size === 1) dragged = false;
+  });
+  svg.addEventListener("pointermove", (event) => {
+    const last = pointers.get(event.pointerId);
+    if (!last || !layout) return;
+    const now = { x: event.clientX, y: event.clientY };
+    if (pointers.size === 2) {
+      const [other] = [...pointers.entries()].filter(([id]) => id !== event.pointerId).map(([, p]) => p);
+      const before = Math.hypot(last.x - other.x, last.y - other.y);
+      const after = Math.hypot(now.x - other.x, now.y - other.y);
+      if (before > 0) zoomAt((now.x + other.x) / 2, (now.y + other.y) / 2, after / before);
+    } else {
+      const a = toSvg(last.x, last.y);
+      const b = toSvg(now.x, now.y);
+      view.x -= b.x - a.x;
+      view.y -= b.y - a.y;
+      apply();
+    }
+    moved += Math.hypot(now.x - last.x, now.y - last.y);
+    dragged = moved > 6;
+    pointers.set(event.pointerId, now);
+  });
+  for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+    svg.addEventListener(type, (event) => pointers.delete((event as PointerEvent).pointerId));
+  }
+  svg.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      zoomAt(event.clientX, event.clientY, event.deltaY < 0 ? 1.2 : 1 / 1.2);
+    },
+    { passive: false },
+  );
 }
 
 function togglePlay(): void {
@@ -61,6 +129,7 @@ function render(s: AppState): void {
   if (!layout || key !== layoutKey) {
     layout = layoutRiverPlan(s.stations, s.watercourses);
     layoutKey = key;
+    view = { x: 0, y: 0, w: layout.width, h: layout.height };
   }
   const [lo, hi] = dataSpan();
   const slider = $<HTMLInputElement>("#river-month-input");
@@ -102,7 +171,7 @@ function strip(s: AppState, code: string, x: number, y: number, month: MonthInde
 
 function drawPlan(s: AppState, plan: PlanLayout): void {
   const svg = $<SVGSVGElement>("#river-plan");
-  svg.setAttribute("viewBox", `0 0 ${plan.width} ${plan.height}`);
+  svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
   const at = (code: string) => stationStateAt(s.readings, code, s.riverMonth);
   const { y } = plan.trunk;
   const trunkCodes = Object.entries(plan.positions)

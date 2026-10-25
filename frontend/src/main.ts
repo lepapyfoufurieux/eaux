@@ -24,9 +24,37 @@ function showMode(s: AppState): void {
   storage.set(MODE_KEY, s.mode);
 }
 
+/** Keep the top bar on one line: the action buttons fold into a menu when they do not fit. */
+function mountTopbarMenu(): () => void {
+  const bar = $(".topbar");
+  const toggle = $<HTMLButtonElement>(".menu-toggle");
+  const actions = $("#actions");
+  const setOpen = (open: boolean) => {
+    actions.classList.toggle("open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+  };
+  const fit = () => {
+    setOpen(false);
+    bar.classList.remove("compact");
+    bar.classList.toggle("compact", bar.scrollWidth > bar.clientWidth);
+  };
+  toggle.addEventListener("click", () => setOpen(!actions.classList.contains("open")));
+  // Choosing an action, clicking elsewhere or pressing Escape closes the menu.
+  actions.addEventListener("click", () => setOpen(false));
+  document.addEventListener("click", (event) => {
+    if (!bar.contains(event.target as Node)) setOpen(false);
+  });
+  document.addEventListener("keydown", (event) => event.key === "Escape" && setOpen(false));
+  new ResizeObserver(fit).observe(bar);
+  return fit;
+}
+
 async function start(): Promise<void> {
   const initialMode = location.hash === "#fil" || (location.hash !== "#carte" && storage.get(MODE_KEY) === "river") ? "river" : "map";
   subscribe(showMode);
+  // The map's hide button shows and hides with the mode, so the fit is measured again after each change.
+  const fitTopbar = mountTopbarMenu();
+  subscribe(fitTopbar);
   document.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => update({ mode: button.dataset.mode as AppState["mode"] }));
   });

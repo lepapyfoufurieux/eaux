@@ -148,11 +148,13 @@ function bindGroupPopup(marker: L.Marker, group: Reading[]): void {
 }
 
 function mountLegend(): void {
+  // A <details> so it folds away; folded from the start on phones, where it would cover the map.
+  const open = matchMedia("(min-width: 761px)").matches ? " open" : "";
   $("#legend").innerHTML =
-    `<h2>Débit observé</h2><ul>` +
+    `<details${open}><summary>Légende</summary><ul>` +
     FLOW_LEVELS.map((k) => `<li><i style="--c:${FLOW[k].colour}"></i>${FLOW[k].label}</li>`).join("") +
     `<li><i style="--c:${UNKNOWN_COLOUR}"></i>Pas de relevé sur la période</li>` +
-    `<li><i class="line"></i>Cours d'eau (BD TOPAGE)</li><li><i class="spring"></i>Source (IGN / OFB)</li><li><i class="basin"></i>Bassin versant du Saurat</li><li><i class="group">3</i>Photos au même endroit</li></ul>`;
+    `<li><i class="line"></i>Cours d'eau (BD TOPAGE)</li><li><i class="spring"></i>Source (IGN / OFB)</li><li><i class="basin"></i>Bassin versant du Saurat</li><li><i class="group">3</i>Photos au même endroit</li></ul></details>`;
 }
 
 /** Centre the map on a place, e.g. from the river view's "Voir sur la carte". */

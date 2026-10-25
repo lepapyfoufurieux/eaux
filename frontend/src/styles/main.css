@@ -40,12 +40,21 @@ body {
   background: var(--paper);
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  /* Exactly the visible height (dvh leaves out the phone's address bar): the page never scrolls, so the
+     top bar cannot slide away when the map takes the focus. A view that needs more room scrolls inside. */
+  height: 100vh;
+  height: 100dvh;
 }
 
-.topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.topbar h1 { font-size: 18px; margin: 0 auto 0 0; }
-.modes { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.topbar { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.topbar .btn, .modes button { white-space: nowrap; }
+/* One line always: when the buttons do not fit (class set by main.ts), they move into a drop-down menu. */
+.topbar .menu-toggle { display: none; }
+.topbar.compact .menu-toggle { display: inline-block; }
+.topbar.compact .actions { display: none; position: absolute; z-index: 1100; right: 16px; top: calc(100% + 4px); flex-direction: column; align-items: stretch; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 12px rgb(0 0 0 / 0.3); }
+.topbar.compact .actions.open { display: flex; }
+.topbar h1 { font-size: 18px; margin: 0 auto 0 0; white-space: nowrap; }
+.modes { display: flex; flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .modes button { border: 0; padding: 6px 12px; background: none; color: inherit; font: inherit; cursor: pointer; }
 .modes button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .actions { display: flex; gap: 8px; }
@@ -55,15 +64,16 @@ body {
 .btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn:disabled { opacity: 0.5; cursor: default; }
 
-main { flex: 1; display: flex; }
-.view { flex: 1; position: relative; }
+main { flex: 1; display: flex; min-height: 0; }
+.view { flex: 1; position: relative; min-height: 0; overflow: auto; }
 /* Views set their own display; keep `hidden` stronger than any of them. */
 [hidden] { display: none !important; }
 
 /* Map view */
 #map { position: absolute; inset: 0; }
 .legend { position: absolute; z-index: 500; left: 12px; top: 12px; padding: 10px 12px; background: var(--surface); border-radius: 8px; font-size: 13px; }
-.legend h2 { font-size: 13px; margin: 0 0 6px; }
+.legend summary { font-weight: 700; cursor: pointer; }
+.legend details[open] summary { margin-bottom: 6px; }
 .legend ul { list-style: none; margin: 0; padding: 0; }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: var(--c); }
 .legend i.spring { border-radius: 2px; transform: rotate(45deg) scale(0.8); background: var(--ink-soft); }
@@ -106,7 +116,8 @@ main { flex: 1; display: flex; }
 .river-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 10px 16px; }
 .tally { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; }
 .tally i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; background: var(--c); }
-#river-plan { width: 100%; height: 100%; }
+/* The plan handles pinch and drag itself (plan.ts), so the browser must not zoom or move the page from it. */
+#river-plan { width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .track { fill: none; stroke-linecap: round; }
 .track.unknown { stroke-dasharray: 2 6; }
 .station circle { fill: var(--surface); stroke: var(--ink); stroke-width: 3; cursor: pointer; }
@@ -137,8 +148,16 @@ dialog input[type="text"], dialog textarea, dialog select, dialog input[type="da
 .msg.error { padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--flow-dry) 12%, transparent); }
 .msg.fatal { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 1000; }
 
+/* Phones: a tighter bar so the title, the two views and the menu still fit on one line. */
+@media (max-width: 440px) {
+  .topbar { gap: 8px; padding: 10px 12px; }
+  .topbar h1 { font-size: 16px; }
+  .menu-toggle .label { display: none; }
+}
+
 @media (max-width: 760px) {
   #view-river { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
   #river-plan { height: 60vh; }
-  .station-card { border-left: 0; border-top: 1px solid var(--line); }
+  /* Full height under the plan; the view scrolls, not the card. */
+  .station-card { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
 }
