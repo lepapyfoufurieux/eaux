@@ -1,4 +1,4 @@
-import { type MonthIndex, monthRange } from "./domain/months";
+import { type MonthIndex, monthIndex, monthRange } from "./domain/months";
 import type { Reading, Station, Watercourse } from "./types";
 
 /**
@@ -45,6 +45,7 @@ export function dataSpan(): [MonthIndex, MonthIndex] {
   return monthRange(state.readings.map((r) => r.takenAt));
 }
 
+/** Add a just-published reading, stretching the map's range so its pin shows. */
 export function addReading(reading: Reading): void {
-  update({ readings: [...state.readings, reading] });
+  update({ readings: [...state.readings, reading], range: [state.range[0], Math.max(state.range[1], monthIndex(reading.takenAt))] });
 }

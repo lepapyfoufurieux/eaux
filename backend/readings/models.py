@@ -3,6 +3,8 @@ import secrets
 import uuid
 
 from django.contrib.gis.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 
 class FlowLevel(models.TextChoices):
@@ -86,3 +88,10 @@ class Reading(models.Model):
 
     def check_edit_key(self, key):
         return secrets.compare_digest(self.edit_key_hash, self.hash_key(key))
+
+
+@receiver(post_delete, sender=Reading)
+def delete_files(sender, instance, **kwargs):
+    # Django keeps the files of deleted rows, and Caddy would keep serving them.
+    instance.photo.delete(save=False)
+    instance.thumbnail.delete(save=False)

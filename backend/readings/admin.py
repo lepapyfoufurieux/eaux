@@ -14,7 +14,10 @@ class StationAdmin(admin.GISModelAdmin):
 
 @admin.register(Reading)
 class ReadingAdmin(admin.GISModelAdmin):
-    """Moderation happens here: hide a reading, or correct its station."""
+    """Moderation happens here: hide a reading, or correct its station.
+
+    Hiding keeps the photo at its URL; to take a photo offline, delete the reading.
+    """
 
     list_display = ["preview", "taken_at", "flow_level", "station", "station_distance_m", "author_name", "status"]
     list_filter = ["status", "flow_level", "station"]

@@ -1,7 +1,9 @@
 import csv
 import io
+from pathlib import Path
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 
 from readings.models import Reading
@@ -21,6 +23,11 @@ def publish(client, photo, **fields):
     }
     data.update(fields)
     return client.post("/api/readings", data)
+
+
+def export(client):
+    exported = b"".join(client.get("/api/readings.csv").streaming_content).decode()
+    return list(csv.reader(io.StringIO(exported)))
 
 
 def test_publish_attaches_station_and_strips_metadata(client, basin, stations, photo_file):
@@ -58,7 +65,46 @@ def test_hidden_readings_are_not_listed_or_exported(client, basin, stations, pho
     listed = client.get("/api/readings").json()
     assert [r["flow_level"] for r in listed] == ["normal"]
 
-    exported = b"".join(client.get("/api/readings.csv").streaming_content).decode()
-    rows = list(csv.reader(io.StringIO(exported)))
+    rows = export(client)
     assert rows[0] == ["date", "debit", "commentaire", "lat", "long", "station", "auteur"]
     assert len(rows) == 2 and rows[1][1] == "normal"
+
+
+def test_csv_export_keeps_formulas_inert(client, basin, stations, photo_file):
+    publish(client, photo_file(), author_name='=HYPERLINK("http://evil.example")', comment="+33 6 00")
+    row = export(client)[1]
+    assert row[6] == '\'=HYPERLINK("http://evil.example")'
+    assert row[2] == "'+33 6 00"
+
+
+def huge_png():
+    # 48 million pixels in a few kilobytes.
+    buffer = io.BytesIO()
+    Image.new("1", (8000, 6000)).save(buffer, "PNG")
+    return SimpleUploadedFile("huge.png", buffer.getvalue(), content_type="image/png")
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        lambda: {"taken_at": "2099-01-01T10:00:00+01:00"},
+        lambda: {"taken_at": "2026-10-12T15:45:00"},  # no time zone
+        lambda: {"comment": "x" * 2001},
+        lambda: {"photo": huge_png()},
+    ],
+    ids=["future-date", "naive-date", "long-comment", "huge-image"],
+)
+def test_bad_publish_is_refused(client, basin, stations, photo_file, fields):
+    response = publish(client, **{"photo": photo_file(), **fields()})
+    assert response.status_code == 422, response.content
+    assert Reading.objects.count() == 0
+
+
+def test_deleting_a_reading_removes_its_files(client, basin, stations, photo_file):
+    publish(client, photo_file())
+    reading = Reading.objects.get()
+    paths = [Path(reading.photo.path), Path(reading.thumbnail.path)]
+    assert all(p.exists() for p in paths)
+
+    Reading.objects.all().delete()  # what the admin's bulk delete does
+    assert not any(p.exists() for p in paths)
