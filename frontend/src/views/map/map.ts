@@ -117,7 +117,9 @@ function bindGroupPopup(marker: L.Marker, group: Reading[]): void {
   const onClick = (click: Event) => {
     const step = (click.target as HTMLElement).closest<HTMLElement>("[data-step]")?.dataset.step;
     if (!step) return;
-    index = (index + Number(step) + group.length) % group.length;
+    // setContent detaches the clicked button; the map would then take the click for one outside the popup and close it.
+    click.stopPropagation();
+    index =(index + Number(step) + group.length) % group.length;
     popup.setContent(groupSheet(group, index));
   };
   marker.on("popupopen", () => popup.getElement()?.addEventListener("click", onClick));
