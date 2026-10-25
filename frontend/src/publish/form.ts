@@ -48,7 +48,7 @@ function open(): void {
       <fieldset class="flows"><legend>Débit observé</legend>
         ${FLOW_LEVELS.map((k) => `<label style="--c:${FLOW[k].colour}"><input type="radio" name="flow" value="${k}" required>${FLOW[k].label}<small>${FLOW[k].hint}</small></label>`).join("")}
       </fieldset>
-      <label>Commentaire (facultatif)<textarea id="f-comment" placeholder="Biodiversité, météo des derniers jours, aspect de l'eau…"></textarea></label>
+      <label>Commentaire (facultatif)<textarea id="f-comment" maxlength="2000" placeholder="Biodiversité, météo des derniers jours, aspect de l'eau…"></textarea></label>
       <div id="f-message" role="status"></div>
       <div class="buttons">
         <button type="button" class="btn" value="cancel" id="f-cancel">Annuler</button>

@@ -3,6 +3,10 @@
 
 	# Django: JSON API and admin
 	handle /api/* {
+		# Photos arrive at about 300 KB; refuse big bodies before Django writes them to disk.
+		request_body {
+			max_size 10MB
+		}
 		reverse_proxy backend:8000
 	}
 	handle /admin/* {
@@ -16,7 +20,8 @@
 	}
 	handle_path /media/* {
 		root * /srv/media
-		header Cache-Control "public, max-age=31536000, immutable"
+		# Not "immutable": a photo deleted by moderation must drop out of caches.
+		header Cache-Control "public, max-age=86400"
 		file_server
 	}
 

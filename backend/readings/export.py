@@ -14,17 +14,22 @@ class Echo:
         return value
 
 
+def text(value):
+    """Contributor text, made inert: spreadsheets run cells starting with these characters as formulas."""
+    return "'" + value if value[:1] in ("=", "+", "-", "@", "\t", "\r") else value
+
+
 def rows(readings):
     yield COLUMNS
     for r in readings:
         yield [
             r.taken_at.isoformat(),
             r.flow_level,
-            r.comment,
+            text(r.comment),
             f"{r.location.y:.6f}",
             f"{r.location.x:.6f}",
             r.station.code if r.station else "",
-            r.author_name,
+            text(r.author_name),
         ]
 
 

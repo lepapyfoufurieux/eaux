@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from django.conf import settings
@@ -6,10 +6,12 @@ from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from ninja import File, Form, Router, Schema, Status
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 from ninja.throttling import AnonRateThrottle
+from pydantic import AwareDatetime
 
 from geo.models import Basin
 
@@ -19,6 +21,7 @@ from .images import process_photo
 from .models import FlowLevel, Reading, Station
 
 router = Router(tags=["readings"])
+MAX_COMMENT_CHARS = 2000
 
 
 class StationOut(Schema):
@@ -79,7 +82,7 @@ class ReadingOut(Schema):
 class ReadingIn(Schema):
     lat: float
     lng: float
-    taken_at: datetime
+    taken_at: AwareDatetime
     flow_level: FlowLevel
     author_name: str
     comment: str = ""
@@ -124,6 +127,12 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
     author = data.author_name.strip()
     if not author:
         raise HttpError(422, "Indiquez votre nom ou prénom.")
+    # A wrong camera clock would stretch both views to an empty future month for everyone.
+    if data.taken_at > timezone.now() + timedelta(days=1):
+        raise HttpError(422, "La date de la photo est dans le futur : vérifiez l'horloge de l'appareil.")
+    # Every visitor downloads every comment.
+    if len(data.comment) > MAX_COMMENT_CHARS:
+        raise HttpError(422, f"Le commentaire dépasse {MAX_COMMENT_CHARS} caractères.")
 
     if data.station:
         station = get_object_or_404(Station, code=data.station, active=True)

@@ -7,6 +7,8 @@ from PIL import Image, ImageOps
 
 PHOTO_MAX_PX = 1600
 THUMB_MAX_PX = 480
+# A small compressed file can decode to gigabytes of pixels; browsers already send 1600 px.
+MAX_PIXELS = 40_000_000
 
 
 def _jpeg(image, max_px, name):
@@ -22,6 +24,8 @@ def process_photo(uploaded, basename):
     """Return (photo, thumbnail) as JPEG files ready to assign to ImageFields. Raises ValueError if unreadable."""
     try:
         image = Image.open(uploaded)
+        if image.width * image.height > MAX_PIXELS:
+            raise ValueError("too many pixels")
         image = ImageOps.exif_transpose(image).convert("RGB")
     except Exception as exc:  # Pillow raises many different errors for bad files
         raise ValueError("unreadable image") from exc
