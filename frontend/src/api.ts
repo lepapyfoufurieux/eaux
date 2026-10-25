@@ -1,5 +1,5 @@
 import type { FlowLevel } from "./domain/flow";
-import type { Reading, Station, Watercourse } from "./types";
+import type { LatLng, Reading, Station, Watercourse } from "./types";
 
 type GeoJSON = { type: "FeatureCollection"; features: { geometry: any; properties: Record<string, any> }[] };
 
@@ -54,8 +54,8 @@ export async function fetchWatercourses(): Promise<Watercourse[]> {
 
 export interface NewReading {
   photo: Blob;
-  lat: number;
-  lng: number;
+  /** Null when the photo has no position; the station is then required. */
+  position: LatLng | null;
   takenAt: Date;
   flowLevel: FlowLevel;
   authorName: string;
@@ -72,8 +72,10 @@ export interface Published {
 export async function publishReading(input: NewReading): Promise<Published> {
   const form = new FormData();
   form.append("photo", input.photo, "photo.jpg");
-  form.append("lat", String(input.lat));
-  form.append("lng", String(input.lng));
+  if (input.position) {
+    form.append("lat", String(input.position.lat));
+    form.append("lng", String(input.position.lng));
+  }
   form.append("taken_at", input.takenAt.toISOString());
   form.append("flow_level", input.flowLevel);
   form.append("author_name", input.authorName);

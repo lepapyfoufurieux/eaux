@@ -1,4 +1,4 @@
-import { fetchBasin, publishReading } from "../api";
+import { fetchBasin, fetchSprings, fetchWatercourseLines, publishReading } from "../api";
 import { FLOW, FLOW_LEVELS, type FlowLevel } from "../domain/flow";
 import { distanceM, insideRing } from "../domain/geo";
 import { $, esc, formatDate, storage } from "../html";
@@ -57,7 +57,7 @@ function open(): void {
     </form>`;
   dialog.showModal();
 
-  let pending: { photo: Blob; lat: number; lng: number; takenAt: Date } | null = null;
+  let pending: { photo: Blob; position: LatLng | null; takenAt: Date } | null = null;
   const checks = $("#f-checks");
   const message = $("#f-message");
   const submit = $<HTMLButtonElement>("#f-submit");
@@ -77,14 +77,7 @@ function open(): void {
     checks.textContent = "Lecture des métadonnées (EXIF)…";
 
     const meta = await readMetadata(file);
-    if (meta === "no-position" || meta === "unreadable") {
-      checks.textContent = "✕ Pas de position GPS dans la photo";
-      return fail(
-        "Cette photo ne contient pas sa position.",
-        "Activez la localisation pour l'appareil photo, reprenez la photo, puis réessayez. Les photos envoyées par messagerie perdent souvent leur position.",
-      );
-    }
-    if (!(await insideBasin(meta))) {
+    if (meta.position && !(await insideBasin(meta.position))) {
       checks.textContent = `✓ Position trouvée · ✕ Hors du bassin versant`;
       return fail("Cette photo a été prise hors du bassin versant.", "Seuls les cours d'eau du bassin versant de Saurat sont suivis.");
     }
@@ -94,8 +87,10 @@ function open(): void {
     } catch {
       return fail("Ce format d'image n'est pas pris en charge.", "Sur iPhone : Réglages › Appareil photo › Formats › « Le plus compatible ».");
     }
-    checks.textContent = `✓ Position ${meta.lat.toFixed(5)}, ${meta.lng.toFixed(5)} · ✓ Prise le ${formatDate(meta.takenAt)} · ✓ ${Math.round(photo.size / 1024)} Ko`;
-    renderStationChoice(meta);
+    const where = meta.position ? `✓ Position ${meta.position.lat.toFixed(5)}, ${meta.position.lng.toFixed(5)}` : "✕ Pas de position GPS";
+    checks.textContent = `${where} · ✓ Prise le ${formatDate(meta.takenAt)} · ✓ ${Math.round(photo.size / 1024)} Ko`;
+    if (meta.position) renderStationChoice(meta.position);
+    else await renderManualChoice();
     pending = { photo, ...meta };
     submit.disabled = false;
   });
@@ -108,14 +103,17 @@ function open(): void {
     if (!name || !flow) return fail("Il manque des informations.", "Indiquez votre nom et le débit observé.");
     storage.set(NAME_KEY, $<HTMLInputElement>("#f-remember").checked ? name : null);
 
+    const station = dialog.querySelector<HTMLSelectElement>("#f-station-select:enabled")?.value || undefined;
     submit.disabled = true;
     try {
       const result = await publishReading({
         ...pending,
+        // Without GPS and without a station, the photo takes the position of the spring or watercourse picked.
+        position: pending.position ?? (station ? null : manualPosition()),
         flowLevel: flow,
         authorName: name,
         comment: $<HTMLTextAreaElement>("#f-comment").value,
-        station: dialog.querySelector<HTMLSelectElement>("#f-station-select")?.value || undefined,
+        station,
       });
       rememberEditKey(result.reading.id, result.editKey);
       addReading(result.reading);
@@ -137,6 +135,91 @@ function renderStationChoice(point: LatLng): void {
   $("#f-station").innerHTML = `<label>Station
     <select id="f-station-select"><option value="">Automatique (la plus proche)</option>${options}</select></label>
     <small>${nearest ? `${esc(nearest.station.name)} est à ${Math.round(nearest.distance)} m.` : "Aucune station à moins de 400 m : la photo apparaîtra sur la carte seulement."}</small>`;
+}
+
+const byCode = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
+const at = (lng: number, lat: number) => `${lat},${lng}`;
+
+/**
+ * No position in the photo: the contributor says where it was taken, on a watercourse (then a station on it)
+ * or at a spring. Unnamed ones are listed too. A spring, or a watercourse with no station, lends its own
+ * position to the photo (data-at), so the server checks and attaches it as if it came from the GPS.
+ */
+async function renderManualChoice(): Promise<void> {
+  const [lines, springs] = await Promise.all([fetchWatercourseLines(), fetchSprings()]);
+  // Watercourses have no number: those with stations follow their first station's, the others come after by name.
+  const firstCode = (id: number) => state.stations.filter((s) => s.watercourseId === id).map((s) => s.code).sort(byCode)[0];
+  const watercourses = lines.features
+    .map(({ properties: p, geometry }) => {
+      // shortcut: the middle vertex of the longest piece stands for the watercourse; fine for a map pin.
+      const piece = [...geometry.coordinates].sort((a: number[][], b: number[][]) => b.length - a.length)[0];
+      const [lng, lat] = piece[Math.floor(piece.length / 2)];
+      const label = p.name.startsWith("Cours d'eau sans nom") ? `${p.name} (${p.topage_code || `n° ${p.id}`})` : p.name;
+      return { id: p.id as number, label, first: firstCode(p.id), at: at(lng, lat) };
+    })
+    .sort((a, b) => (a.first && b.first ? byCode(a.first, b.first) : a.first ? -1 : b.first ? 1 : byCode(a.label, b.label)));
+  // Named springs first, then the others from the highest down.
+  const springOptions = springs.features
+    .map(({ properties: p, geometry }) => ({
+      named: p.kind.includes("("),
+      altitude: p.altitude_m ?? 0,
+      label: `${p.kind}${p.altitude_m ? ` · ${p.altitude_m} m` : ""}`,
+      at: at(geometry.coordinates[0], geometry.coordinates[1]),
+    }))
+    .sort((a, b) => Number(b.named) - Number(a.named) || (a.named ? byCode(a.label, b.label) : b.altitude - a.altitude));
+
+  $("#f-station").innerHTML = `<small>La photo ne contient pas sa position : indiquez où elle a été prise.</small>
+    <div class="modes" role="group" aria-label="Lieu de la photo">
+      <button type="button" data-place="watercourse" aria-pressed="true">Cours d'eau</button>
+      <button type="button" data-place="spring" aria-pressed="false">Source</button>
+    </div>
+    <div id="f-on-watercourse">
+      <label>Cours d'eau
+        <select id="f-watercourse" required><option value="">Choisir…</option>
+          ${watercourses.map((w) => `<option value="${w.id}" data-at="${w.at}">${esc(w.label)}</option>`).join("")}</select></label>
+      <label>Station<select id="f-station-select" required disabled><option value="">Choisir d'abord le cours d'eau</option></select></label>
+    </div>
+    <label id="f-on-spring" hidden>Source
+      <select id="f-spring" required disabled><option value="">Choisir…</option>
+        ${springOptions.map((s) => `<option value="${s.at}">${esc(s.label)}</option>`).join("")}</select></label>`;
+
+  const watercourseSelect = $<HTMLSelectElement>("#f-watercourse");
+  const stationSelect = $<HTMLSelectElement>("#f-station-select");
+  const springSelect = $<HTMLSelectElement>("#f-spring");
+  const showStations = () => {
+    const stations = state.stations.filter((s) => s.watercourseId === Number(watercourseSelect.value)).sort((a, b) => byCode(a.code, b.code));
+    stationSelect.disabled = !watercourseSelect.value;
+    stationSelect.required = stations.length > 0;
+    stationSelect.innerHTML = !watercourseSelect.value
+      ? `<option value="">Choisir d'abord le cours d'eau</option>`
+      : stations.length
+        ? `<option value="">Choisir…</option>` + stations.map((s) => `<option value="${s.code}">${esc(s.code)} · ${esc(s.name)}</option>`).join("")
+        : `<option value="">Pas de station sur ce cours d'eau</option>`;
+  };
+  watercourseSelect.addEventListener("change", showStations);
+  // The hidden choice is disabled, so the browser neither requires nor sends it.
+  for (const button of $("#f-station").querySelectorAll<HTMLButtonElement>("[data-place]")) {
+    button.addEventListener("click", () => {
+      const spring = button.dataset.place === "spring";
+      $("#f-station").querySelectorAll("[data-place]").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+      $("#f-on-watercourse").hidden = spring;
+      $("#f-on-spring").hidden = !spring;
+      watercourseSelect.disabled = spring;
+      springSelect.disabled = !spring;
+      if (spring) stationSelect.disabled = true;
+      else showStations();
+    });
+  }
+}
+
+/** Where a photo without GPS stands when no station is chosen: the picked spring, or the picked watercourse. */
+function manualPosition(): LatLng | null {
+  const spring = document.querySelector<HTMLSelectElement>("#f-spring:enabled")?.value;
+  const watercourse = document.querySelector<HTMLSelectElement>("#f-watercourse:enabled")?.selectedOptions[0]?.dataset.at;
+  const value = spring || watercourse;
+  if (!value) return null;
+  const [lat, lng] = value.split(",").map(Number);
+  return { lat, lng };
 }
 
 /** The edit key lets this device modify or delete the reading later, without an account. */

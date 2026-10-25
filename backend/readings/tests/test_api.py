@@ -51,6 +51,25 @@ def test_contributor_can_pick_another_station(client, basin, stations, photo_fil
     assert response.json()["station_distance_m"] > 2000
 
 
+def without_position(photo, **fields):
+    return {"taken_at": "2026-10-12T15:45:00+02:00", "flow_level": "normal", "author_name": "Marion", "photo": photo, **fields}
+
+
+def test_photo_without_position_goes_to_the_chosen_station(client, basin, stations, photo_file):
+    response = client.post("/api/readings", without_position(photo_file(), station="S04"))
+    assert response.status_code == 201, response.content
+    body = response.json()
+    assert body["reading"]["station"] == "S04"
+    assert (body["reading"]["lat"], body["reading"]["lng"]) == (42.87, 1.526)
+    assert body["station_distance_m"] is None
+
+
+def test_photo_without_position_needs_a_station(client, basin, stations, photo_file):
+    response = client.post("/api/readings", without_position(photo_file()))
+    assert response.status_code == 422
+    assert Reading.objects.count() == 0
+
+
 def test_photo_outside_basin_is_refused(client, basin, stations, photo_file):
     response = publish(client, photo_file(), lat=43.0, lng=1.6)
     assert response.status_code == 422

@@ -118,6 +118,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
 .sheet-reading img { width: 100%; border-radius: 6px; }
+.sheet-reading .where { font-weight: 700; font-size: 14px; }
 .sheet-reading .who { font-weight: 600; }
 .sheet-reading .when, .sheet-group .count { color: var(--ink-soft); font-size: 13px; }
 .sheet-group .track { display: flex; align-items: center; gap: 4px; }
@@ -155,6 +156,9 @@ dialog form { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
 dialog h2 { margin: 0; }
 dialog label { display: flex; flex-direction: column; gap: 4px; }
 dialog label.row { flex-direction: row; align-items: center; }
+#f-station, #f-on-watercourse { display: grid; gap: 12px; }
+#f-station:empty { display: none; }
+#f-station .modes { justify-self: start; }
 dialog input[type="text"], dialog textarea, dialog select, dialog input[type="date"] { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: inherit; }
 .flows { display: grid; gap: 6px; border: 0; padding: 0; }
 .flows label { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-left: 6px solid var(--c); border-radius: 6px; }

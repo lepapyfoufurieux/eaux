@@ -1,22 +1,22 @@
 import exifr from "exifr";
+import type { LatLng } from "../types";
 
 export interface PhotoMetadata {
-  lat: number;
-  lng: number;
+  /** Null when the photo has no position: phones drop it when a photo goes through a messaging app. */
+  position: LatLng | null;
   takenAt: Date;
 }
 
-export type MetadataProblem = "no-position" | "unreadable";
-
-/** Read position and date from the photo. Phones drop the position when a photo goes through a messaging app. */
-export async function readMetadata(file: File): Promise<PhotoMetadata | MetadataProblem> {
+/** Read position and date from the photo, falling back to the file date. */
+export async function readMetadata(file: File): Promise<PhotoMetadata> {
+  const fallback = { position: null, takenAt: new Date(file.lastModified) };
   try {
     const gps = await exifr.gps(file);
-    if (!gps || !Number.isFinite(gps.latitude) || !Number.isFinite(gps.longitude)) return "no-position";
     const tags = await exifr.parse(file, ["DateTimeOriginal"]);
-    const takenAt = tags?.DateTimeOriginal instanceof Date ? tags.DateTimeOriginal : new Date(file.lastModified);
-    return { lat: gps.latitude, lng: gps.longitude, takenAt };
+    const takenAt = tags?.DateTimeOriginal instanceof Date ? tags.DateTimeOriginal : fallback.takenAt;
+    const position = gps && Number.isFinite(gps.latitude) && Number.isFinite(gps.longitude) ? { lat: gps.latitude, lng: gps.longitude } : null;
+    return { position, takenAt };
   } catch {
-    return "unreadable";
+    return fallback;
   }
 }

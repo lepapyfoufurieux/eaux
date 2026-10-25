@@ -80,8 +80,9 @@ class ReadingOut(Schema):
 
 
 class ReadingIn(Schema):
-    lat: float
-    lng: float
+    # Missing when the photo lost its position (messaging apps); a station is then required.
+    lat: float | None = None
+    lng: float | None = None
     taken_at: AwareDatetime
     flow_level: FlowLevel
     author_name: str
@@ -119,9 +120,14 @@ def export_readings(request, date_from: date | None = None, date_to: date | None
     throttle=[AnonRateThrottle("30/h")],
 )
 def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
-    point = Point(data.lng, data.lat, srid=4326)
-    if not Basin.contains(point):
-        raise HttpError(422, "Cette photo a été prise hors du bassin versant de Saurat.")
+    if data.lat is None or data.lng is None:
+        if not data.station:
+            raise HttpError(422, "Sans position dans la photo, choisissez le cours d'eau et la station.")
+        point = None
+    else:
+        point = Point(data.lng, data.lat, srid=4326)
+        if not Basin.contains(point):
+            raise HttpError(422, "Cette photo a été prise hors du bassin versant de Saurat.")
     if photo.size > settings.MAX_PHOTO_BYTES:
         raise HttpError(413, "La photo est trop lourde.")
     author = data.author_name.strip()
@@ -136,7 +142,11 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
 
     if data.station:
         station = get_object_or_404(Station, code=data.station, active=True)
-        distance = Station.objects.annotate(d=Distance("location", point)).get(pk=station.pk).d.m
+        if point is None:
+            # No position: the photo stands at its station; no distance tells moderators it was placed by hand.
+            point, distance = station.location, None
+        else:
+            distance = Station.objects.annotate(d=Distance("location", point)).get(pk=station.pk).d.m
     else:
         station, distance = nearest_station(point)
 
