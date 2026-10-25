@@ -156,9 +156,9 @@ dialog form { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
 dialog h2 { margin: 0; }
 dialog label { display: flex; flex-direction: column; gap: 4px; }
 dialog label.row { flex-direction: row; align-items: center; }
-#f-station, #f-on-watercourse { display: grid; gap: 12px; }
-#f-station:empty { display: none; }
-#f-station .modes { justify-self: start; }
+#f-station, #f-place, #f-on-watercourse { display: grid; gap: 12px; }
+#f-station:empty, #f-place:empty { display: none; }
+#f-station .modes, #f-pick-place { justify-self: start; }
 dialog input[type="text"], dialog textarea, dialog select, dialog input[type="date"] { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: inherit; }
 .flows { display: grid; gap: 6px; border: 0; padding: 0; }
 .flows label { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-left: 6px solid var(--c); border-radius: 6px; }
