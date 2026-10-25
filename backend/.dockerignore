@@ -1,0 +1,10 @@
+# Keep host-specific files out of the build context: a node_modules folder
+# installed on Windows or macOS would overwrite the one built for Linux.
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+.git
+.env
+media
+staticfiles

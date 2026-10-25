@@ -1,5 +1,5 @@
 # Builds the frontend, then serves it with Caddy.
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci || npm install
