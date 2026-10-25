@@ -41,4 +41,13 @@ describe("layoutRiverPlan", () => {
     expect(layout.branches[0].stations).toContain("S05");
     expect(layout.unplaced).toEqual(["S09"]);
   });
+
+  it("keeps branches whose confluences are close apart, alternating sides", () => {
+    const close: Watercourse[] = [1, 2, 3].map((id) => ({ id: id + 10, name: `R${id}`, tributaryOf: 1, confluencePosition: 0.5 }));
+    const plan = layoutRiverPlan([station("S01", 1, 1), station("S02", 1, 2), ...[1, 2, 3].map((id) => station(`B${id}`, id + 10, 1))], [watercourses[0], ...close]);
+    const [a, b, c] = plan.branches;
+    expect(a.direction).not.toBe(b.direction);
+    expect(c.direction).toBe(a.direction);
+    expect(c.x - a.x).toBeGreaterThanOrEqual(240);
+  });
 });

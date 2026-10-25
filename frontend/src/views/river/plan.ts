@@ -18,6 +18,24 @@ let view = { x: 0, y: 0, w: 0, h: 0 };
 // Clicks that end a drag or a pinch must not select a station.
 let dragged = false;
 const MAX_ZOOM = 6;
+// Narrowest part of the plan one may zoom to: 6× the whole plan, or deeper on a small screen, where the
+// details only show (DETAIL_SCALE) well past 6×. Either way, one can zoom to half again past where they appear.
+const minViewWidth = (svg: SVGSVGElement, width: number) => Math.min(width / MAX_ZOOM, svg.clientWidth / (DETAIL_SCALE * 1.5));
+// Below this many screen pixels per plan unit, the overview shows: station details hide, branches get one name.
+const DETAIL_SCALE = 1.1;
+// Names grow so they never show smaller than at this scale (about 10 px on screen).
+const NAME_SCALE = 0.75;
+// Below this, even the main river's station names would overlap (a phone showing the whole plan): they hide too.
+const FAR_SCALE = 0.45;
+
+/** Show the details only once zoomed in enough to read them, and keep the names readable when zoomed out. */
+function fitDetail(svg: SVGSVGElement): void {
+  if (!svg.clientWidth || !view.w) return;
+  const scale = svg.clientWidth / view.w;
+  svg.classList.toggle("overview", scale < DETAIL_SCALE);
+  svg.classList.toggle("far", scale < FAR_SCALE);
+  svg.style.setProperty("--k", String(Math.max(1, NAME_SCALE / scale)));
+}
 
 /** The schematic "Fil de l'eau" view: every station coloured by its latest reading at the chosen month. */
 export function mountRiverView(): void {
@@ -53,15 +71,16 @@ function mountZoom(svg: SVGSVGElement): void {
   const apply = () => {
     if (!layout) return;
     const { width, height } = layout;
-    view.w = Math.min(width, Math.max(width / MAX_ZOOM, view.w));
+    view.w = Math.min(width, Math.max(minViewWidth(svg, width), view.w));
     view.h = view.w * (height / width);
     view.x = Math.min(width - view.w, Math.max(0, view.x));
     view.y = Math.min(height - view.h, Math.max(0, view.y));
     svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+    fitDetail(svg);
   };
   const zoomAt = (clientX: number, clientY: number, factor: number) => {
     const p = toSvg(clientX, clientY);
-    const w = Math.min(layout!.width, Math.max(layout!.width / MAX_ZOOM, view.w / factor));
+    const w = Math.min(layout!.width, Math.max(minViewWidth(svg, layout!.width), view.w / factor));
     const k = w / view.w;
     view = { x: p.x - (p.x - view.x) * k, y: p.y - (p.y - view.y) * k, w, h: view.h * k };
     apply();
@@ -172,6 +191,7 @@ function strip(s: AppState, code: string, x: number, y: number, month: MonthInde
 function drawPlan(s: AppState, plan: PlanLayout): void {
   const svg = $<SVGSVGElement>("#river-plan");
   svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+  fitDetail(svg);
   const at = (code: string) => stationStateAt(s.readings, code, s.riverMonth);
   const { y } = plan.trunk;
   const trunkCodes = Object.entries(plan.positions)
@@ -185,6 +205,9 @@ function drawPlan(s: AppState, plan: PlanLayout): void {
     out += segment(p.x, y, next, y, at(code), 14);
   });
 
+  // Branch names (zoomed out only) placed so far, to move a name outwards rather than overlap another.
+  const fontSize = 14 * Number(svg.style.getPropertyValue("--k") || 1);
+  const placed: { x1: number; x2: number; y: number }[] = [];
   // Branches: the stretch from the confluence shows the driest station of the branch.
   for (const branch of plan.branches) {
     const states = branch.stations.map(at).filter((r): r is Reading => r !== null);
@@ -193,6 +216,15 @@ function drawPlan(s: AppState, plan: PlanLayout): void {
     branch.stations.forEach((code, i) => {
       if (i > 0) out += segment(branch.x, plan.positions[branch.stations[i - 1]].y, branch.x, plan.positions[code].y, at(code), 7);
     });
+    // Zoomed out, the branch is named once, beyond its last station, instead of at each station.
+    // shortcut: the width is guessed from the length of the name, close enough for a sans-serif font.
+    const half = (branch.name.length * fontSize * 0.55) / 2;
+    let end = plan.positions[branch.stations[branch.stations.length - 1]].y + branch.direction * (24 + (branch.direction > 0 ? fontSize : 0));
+    while (placed.some((l) => l.x1 < branch.x + half && branch.x - half < l.x2 && Math.abs(l.y - end) < fontSize * 1.2)) {
+      end += branch.direction * fontSize * 1.2;
+    }
+    placed.push({ x1: branch.x - half, x2: branch.x + half, y: end });
+    out += `<text class="river-name branch overview-only" x="${branch.x}" y="${end}" text-anchor="middle">${esc(branch.name)}</text>`;
   }
 
   out += `<text class="river-name trunk" x="${plan.trunk.x1}" y="${y - 20}">${esc(plan.trunk.name.toUpperCase())}</text>`;
@@ -203,10 +235,10 @@ function drawPlan(s: AppState, plan: PlanLayout): void {
     const count = s.readings.filter((r) => r.station === station.code).length;
     const countLabel = `${count} relevé${count > 1 ? "s" : ""}`;
     const label = p.onTrunk
-      ? `<text x="${p.x}" y="${y + 36}" text-anchor="middle" class="name">${esc(station.name)}</text>
-         <text x="${p.x}" y="${y + 50}" text-anchor="middle" class="meta">${countLabel}</text>${strip(s, station.code, p.x - 47, y + 56, s.riverMonth)}`
-      : `<text x="${p.x + 18}" y="${p.y - 6}" class="name">${esc(station.name)}</text>
-         <text x="${p.x + 18}" y="${p.y + 8}" class="meta">${esc(p.river)} · ${countLabel}</text>${strip(s, station.code, p.x + 18, p.y + 13, s.riverMonth)}`;
+      ? `<text x="${p.x}" y="${y + 36}" text-anchor="middle" class="name trunk-name">${esc(station.name)}</text>
+         <text x="${p.x}" y="${y + 50}" text-anchor="middle" class="meta detail">${countLabel}</text><g class="detail">${strip(s, station.code, p.x - 47, y + 56, s.riverMonth)}</g>`
+      : `<text x="${p.x + 18}" y="${p.y - 6}" class="name detail">${esc(station.name)}</text>
+         <text x="${p.x + 18}" y="${p.y + 8}" class="meta detail">${esc(p.river)} · ${countLabel}</text><g class="detail">${strip(s, station.code, p.x + 18, p.y + 13, s.riverMonth)}</g>`;
     const selected = s.selectedStation === station.code ? " selected" : "";
     out += `<g class="station${selected}" data-station="${station.code}" tabindex="0" role="button" aria-label="${esc(station.name)}">
       ${label}<circle cx="${p.x}" cy="${p.y}" r="${p.onTrunk ? 13 : 10}"/></g>`;

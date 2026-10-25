@@ -138,9 +138,12 @@ main { flex: 1; display: flex; min-height: 0; }
 .track.unknown { stroke-dasharray: 2 6; }
 .station circle { fill: var(--surface); stroke: var(--ink); stroke-width: 3; cursor: pointer; }
 .station.selected circle { stroke: var(--accent); stroke-width: 5; }
-.station .name { font-size: 14px; fill: var(--ink); }
+/* --k (plan.ts) enlarges the names when the whole plan is shown small, so they stay readable. */
+.station .name { font-size: calc(14px * var(--k, 1)); fill: var(--ink); }
+#river-plan.overview .detail, #river-plan:not(.overview) .overview-only, #river-plan.far .trunk-name { display: none; }
+.river-name.branch { font-size: calc(14px * var(--k, 1)); font-weight: 600; fill: var(--ink); }
 .station .meta, .river-name { font-size: 11px; fill: var(--ink-soft); }
-.river-name.trunk { font-size: 14px; font-weight: 700; fill: var(--ink); }
+.river-name.trunk { font-size: calc(14px * var(--k, 1)); font-weight: 700; fill: var(--ink); }
 .cell.now { stroke: var(--ink); stroke-width: 1; }
 .station-card { padding: 16px; background: var(--surface); border-top: 1px solid var(--line); }
 .station-card .now { border-left: 6px solid var(--c); padding-left: 10px; margin: 12px 0; font-weight: 600; }

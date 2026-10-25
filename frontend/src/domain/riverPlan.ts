@@ -18,6 +18,10 @@ const X0 = 80;
 const GAP = 190;
 const TRUNK_Y_OFFSET = 360;
 const FIRST_STEP = 125;
+// Two branches on the same side of the trunk stay this far apart, so their labels (written to the right) never overlap.
+const BRANCH_GAP = 240;
+// Room kept above the highest station and below the lowest one, for their labels.
+const MARGIN = 60;
 const NEXT_STEP = 110;
 
 export function layoutRiverPlan(stations: Station[], watercourses: Watercourse[]): PlanLayout {
@@ -68,11 +72,12 @@ export function layoutRiverPlan(stations: Station[], watercourses: Watercourse[]
     w.confluencePosition !== null ? X0 + w.confluencePosition * (trunkEnd - X0) : X0 + GAP / 2 + i * GAP;
   const ordered = branchRoots.map((w, i) => ({ w, x: confluenceX(w, i) })).sort((a, b) => a.x - b.x);
 
-  const used = new Set<string>();
-  const branches: PlanLayout["branches"] = ordered.map(({ w, x }, i) => {
-    let direction: -1 | 1 = i % 2 === 0 ? -1 : 1;
-    if (used.has(`${Math.round(x)}:${direction}`)) direction = direction === -1 ? 1 : -1;
-    used.add(`${Math.round(x)}:${direction}`);
+  // Each branch goes on the side with more room (above first), and moves downstream if its confluence is too close.
+  const lastX = { [-1]: -Infinity, [1]: -Infinity };
+  const branches: PlanLayout["branches"] = ordered.map(({ w, x: confluence }) => {
+    const direction: -1 | 1 = lastX[-1] <= lastX[1] ? -1 : 1;
+    const x = Math.max(confluence, lastX[direction] + BRANCH_GAP);
+    lastX[direction] = x;
     // Nearest the confluence first, which is the most downstream station.
     const list = branchStations.get(w.id)!.sort((a, b) => b.order - a.order);
     list.forEach((s, k) => {
@@ -81,13 +86,17 @@ export function layoutRiverPlan(stations: Station[], watercourses: Watercourse[]
     return { name: w.name, x, direction, stations: list.map((s) => s.code) };
   });
 
-  const deepest = Math.max(1, ...branches.map((b) => b.stations.length));
+  // Fit the height to the deepest branch on each side, with room for the labels above and below.
+  const ys = Object.values(positions).map((p) => p.y);
+  const shift = Math.max(0, MARGIN - Math.min(y, ...ys));
+  for (const p of Object.values(positions)) p.y += shift;
   return {
-    trunk: { name: trunk.name, x1: 30, x2: trunkEnd, y },
+    // A branch pushed past the last station still hangs from the trunk.
+    trunk: { name: trunk.name, x1: 30, x2: Math.max(trunkEnd, ...branches.map((b) => b.x + 30)), y: y + shift },
     branches,
     positions,
     unplaced,
-    width: trunkEnd + 60,
-    height: y * 2 + Math.max(0, deepest - 3) * NEXT_STEP,
+    width: Math.max(trunkEnd, ...branches.map((b) => b.x + BRANCH_GAP)) + 60,
+    height: Math.max(y * 2, ...ys.map((v) => v + MARGIN)) + shift,
   };
 }
