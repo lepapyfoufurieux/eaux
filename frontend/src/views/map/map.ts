@@ -1,10 +1,11 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchBasin, fetchSprings, fetchWatercourseLines } from "../../api";
-import { FLOW, FLOW_LEVELS } from "../../domain/flow";
+import { FLOW, FLOW_LEVELS, UNKNOWN_COLOUR, flowColour } from "../../domain/flow";
 import { centre, groupByPlace } from "../../domain/grouping";
+import { springLevel, watercourseLevels } from "../../domain/mapLevels";
 import { monthIndex } from "../../domain/months";
-import { $, esc } from "../../html";
+import { $, esc, formatDate } from "../../html";
 import { type AppState, subscribe } from "../../state";
 import type { Reading } from "../../types";
 import { groupSheet, readingSheet } from "./sheets";
@@ -23,16 +24,23 @@ const pinIcon = (colour: string, count = 1) =>
   });
 
 let map: L.Map;
+let rivers: Awaited<ReturnType<typeof fetchWatercourseLines>>;
+let springs: Awaited<ReturnType<typeof fetchSprings>>;
+const geoLayer = L.layerGroup();
 const readingLayer = L.layerGroup();
+
+const levelText = (r: Reading | null | undefined) =>
+  r ? `${FLOW[r.flowLevel].label}, le ${formatDate(r.takenAt)}` : "Pas de relevé sur la période";
 
 export async function mountMap(): Promise<L.Map> {
   map = L.map("map", { zoomControl: false, minZoom: 11, maxZoom: 18 }).setView([42.875, 1.52], 13);
   L.control.zoom({ position: "topright", zoomInTitle: "Zoomer", zoomOutTitle: "Dézoomer" }).addTo(map);
   L.tileLayer(IGN_PLAN, { maxZoom: 18, attribution: "© IGN Géoplateforme · relevés des habitants" }).addTo(map);
-  readingLayer.addTo(map);
   mountLegend();
 
-  const [basin, rivers, springs] = await Promise.all([fetchBasin(), fetchWatercourseLines(), fetchSprings()]);
+  const [basin, riverLines, springPoints] = await Promise.all([fetchBasin(), fetchWatercourseLines(), fetchSprings()]);
+  rivers = riverLines;
+  springs = springPoints;
   // Veil everything outside the catchment, then draw its edge over a white halo so it reads on any tile.
   const outlines = basin.features.flatMap((f) => f.geometry.coordinates.map((polygon: number[][][]) => polygon[0].map(([lng, lat]) => [lat, lng])));
   const world = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
@@ -40,16 +48,10 @@ export async function mountMap(): Promise<L.Map> {
   L.geoJSON(basin as any, { interactive: false, style: { className: "basin-halo" } }).addTo(map);
   const basinLayer = L.geoJSON(basin as any, { interactive: false, style: { className: "basin" } }).addTo(map);
   if (basin.features.length) map.fitBounds(basinLayer.getBounds(), { padding: [12, 12] });
-  L.geoJSON(rivers as any, { interactive: false, style: { className: "river" } }).addTo(map);
-  L.geoJSON(springs as any, {
-    pointToLayer: (_feature, latlng) => L.marker(latlng, { icon: L.divIcon({ className: "spring", iconSize: [11, 11] }) }),
-    onEachFeature: (feature, layer) => {
-      const p = feature.properties;
-      layer.bindPopup(
-        `<h3>Source</h3><dl><dt>Type</dt><dd>${esc(p.kind)}</dd>${p.altitude_m ? `<dt>Altitude</dt><dd>${p.altitude_m} m</dd>` : ""}<dt>Origine</dt><dd>${esc(p.origin)}</dd></dl>`,
-      );
-    },
-  }).addTo(map);
+  // A white casing under every watercourse lifts it off the tiles; it never changes, so it is drawn once.
+  L.geoJSON(rivers as any, { interactive: false, style: { className: "river-halo" } }).addTo(map);
+  geoLayer.addTo(map);
+  readingLayer.addTo(map);
 
   subscribe(render);
   return map;
@@ -62,6 +64,7 @@ function render(state: AppState): void {
     const m = monthIndex(r.takenAt);
     return m >= lo && m <= hi;
   });
+  renderWater(visible, state);
   for (const group of groupByPlace(visible)) {
     group.sort((a, b) => a.takenAt.getTime() - b.takenAt.getTime());
     const latest = group[group.length - 1];
@@ -73,6 +76,34 @@ function render(state: AppState): void {
     else bindGroupPopup(marker, group);
     marker.addTo(readingLayer);
   }
+}
+
+/** Watercourses and springs coloured by the latest reading of the period shown. */
+function renderWater(visible: Reading[], state: AppState): void {
+  geoLayer.clearLayers();
+  const levels = watercourseLevels(visible, state.stations);
+  // Leaflet sets the stroke as an SVG attribute, which ignores var(), so the colour goes through a class.
+  L.geoJSON(rivers as any, {
+    style: (feature) => ({ className: `river ${levels.get(feature?.properties.id)?.flowLevel ?? "unknown"}` }),
+    onEachFeature: (feature, layer) => {
+      const p = feature.properties;
+      layer.bindTooltip(esc(p.name), { sticky: true });
+      layer.bindPopup(
+        `<h3>${esc(p.name)}</h3><dl>${p.topage_code ? `<dt>Code BD TOPAGE</dt><dd>${esc(p.topage_code)}</dd>` : ""}<dt>Débit</dt><dd>${levelText(levels.get(p.id))}</dd></dl>`,
+      );
+    },
+  }).addTo(geoLayer);
+  L.geoJSON(springs as any, {
+    pointToLayer: (feature, latlng) => {
+      const reading = springLevel(visible, latlng);
+      return L.marker(latlng, {
+        icon: L.divIcon({ className: "spring", html: `<span style="--c:${flowColour(reading?.flowLevel)}"></span>`, iconSize: [12, 12] }),
+        title: `Source : ${levelText(reading)}`,
+      }).bindPopup(
+        `<h3>Source</h3><dl><dt>Type</dt><dd>${esc(feature.properties.kind)}</dd>${feature.properties.altitude_m ? `<dt>Altitude</dt><dd>${feature.properties.altitude_m} m</dd>` : ""}<dt>Origine</dt><dd>${esc(feature.properties.origin)}</dd><dt>Débit</dt><dd>${levelText(reading)}</dd></dl>`,
+      );
+    },
+  }).addTo(geoLayer);
 }
 
 function bindGroupPopup(marker: L.Marker, group: Reading[]): void {
@@ -93,7 +124,8 @@ function mountLegend(): void {
   $("#legend").innerHTML =
     `<h2>Débit observé</h2><ul>` +
     FLOW_LEVELS.map((k) => `<li><i style="--c:${FLOW[k].colour}"></i>${FLOW[k].label}</li>`).join("") +
-    `<li><i class="basin"></i>Bassin versant du Saurat</li><li><i class="spring"></i>Source (IGN / OFB)</li><li><i class="group">3</i>Photos au même endroit</li></ul>`;
+    `<li><i style="--c:${UNKNOWN_COLOUR}"></i>Pas de relevé sur la période</li>` +
+    `<li><i class="line"></i>Cours d'eau (BD TOPAGE)</li><li><i class="spring"></i>Source (IGN / OFB)</li><li><i class="basin"></i>Bassin versant du Saurat</li><li><i class="group">3</i>Photos au même endroit</li></ul>`;
 }
 
 /** Centre the map on a place, e.g. from the river view's "Voir sur la carte". */

@@ -11,7 +11,7 @@ Two views share the same readings:
 | --- | --- |
 | ![Map view](docs/images/map-view.png) | ![River plan view](docs/images/river-view.png) |
 
-The screenshots use the mockup's fictitious data (`seed_demo`); map tiles are not shown.
+The screenshots use the mockup's fictitious data; map tiles are not shown.
 
 ## Stack
 
@@ -55,7 +55,7 @@ cd backend
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 python manage.py migrate
-python manage.py seed_demo          # fictitious data from the mockup
+python manage.py seed_demo          # real geodata from data/, fictitious readings
 python manage.py createsuperuser    # for /admin
 python manage.py runserver
 

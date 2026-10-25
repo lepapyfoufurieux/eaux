@@ -13,8 +13,8 @@ python manage.py import_geodata \
 | File | Source | Expected properties |
 | --- | --- | --- |
 | `basin.geojson` | Topographic catchment of Le Saurat, computed by `prepare_basin.py` (see below) | `name` |
-| `watercourses.geojson` | BD TOPAGE watercourses clipped to the basin | `name`, `code` |
-| `springs.geojson` | IGN BD TOPO and OFB springs inside the basin | `kind`, `altitude_m`, `origin` (`ign` or `ofb`) |
+| `watercourses.geojson` | BD TOPAGE watercourses clipped to the basin, written by `prepare_layers.py` | `name`, `code` |
+| `springs.geojson` | BD TOPO springs (IGN) and BD TOPAGE source nodes (OFB) inside the basin, written by `prepare_layers.py` | `kind`, `altitude_m`, `origin` (`ign` or `ofb`) |
 
 ## The catchment outline
 
@@ -30,4 +30,4 @@ The script stops if the outline misses part of the Saurat or takes in Tarascon. 
 
 Set each tributary's `tributary_of` and `confluence_position` in the admin, then create the stations (code S01…, watercourse, order from upstream). The river plan view is drawn from those fields.
 
-For development without real data, `python manage.py seed_demo` loads the mockup's fictitious stations and readings.
+For development, `python manage.py seed_demo` imports these files and adds fictitious stations along the real watercourses, with readings at them and at a few named springs.

@@ -65,19 +65,30 @@ main { flex: 1; display: flex; }
 .legend h2 { font-size: 13px; margin: 0 0 6px; }
 .legend ul { list-style: none; margin: 0; padding: 0; }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: var(--c); }
-.legend i.spring { background: #3aa0e0; }
+.legend i.spring { border-radius: 2px; transform: rotate(45deg) scale(0.8); background: var(--ink-soft); }
+.legend i.line { width: 18px; height: 5px; border-radius: 3px; vertical-align: 3px; background: #6b7280; }
 .legend i.group { background: var(--ink); color: var(--surface); font: 700 9px/12px system-ui, sans-serif; text-align: center; }
 .timebar { position: absolute; z-index: 500; left: 12px; right: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 8px 12px; background: var(--surface); border-radius: 8px; }
 
 .pin span { display: block; width: 22px; height: 22px; border-radius: 50%; background: var(--c); border: 2px solid var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / 0.35); }
 .pin.group span { display: grid; place-items: center; background: var(--ink); color: var(--surface); outline: 3px solid var(--c); font-size: 12px; font-weight: 700; }
-.spring { width: 11px; height: 11px; border-radius: 50%; background: #3aa0e0; border: 2px solid var(--surface); }
+/* Springs are diamonds so they never read as photo pins. */
+.spring span { display: block; width: 100%; height: 100%; border-radius: 2px; transform: rotate(45deg) scale(0.8); background: var(--c); border: 2px solid var(--surface); box-shadow: 0 1px 2px rgb(0 0 0 / 0.35); }
 /* The IGN map stays light in dark mode, so the catchment uses fixed colours. */
 .basin-mask { fill: #1e2a26; fill-opacity: 0.22; stroke: none; }
 .basin-halo { fill: none; stroke: #ffffff; stroke-width: 6; stroke-opacity: 0.85; }
 .basin { fill: none; stroke: #24584a; stroke-width: 3; }
 .legend i.basin { border-radius: 2px; background: #ffffff; border: 2px solid #24584a; }
-.river { stroke: #3a7fd0; stroke-width: 2; fill: none; }
+/* Watercourses are what the site is about: muted tiles, a white casing and a thick coloured line. */
+#map .leaflet-tile-pane { filter: saturate(0.35); }
+.river-halo { fill: none; stroke: #ffffff; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: 0.9; }
+.river { stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.river.dry { stroke: var(--flow-dry); }
+.river.very_low { stroke: var(--flow-very-low); }
+.river.normal { stroke: var(--flow-normal); }
+.river.high { stroke: var(--flow-high); }
+/* Fixed, like the basin: the tiles stay light in dark mode, and the dark-mode grey would vanish on them. */
+.river.unknown { stroke: #6b7280; stroke-dasharray: 10 6; }
 
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
