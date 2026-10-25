@@ -33,6 +33,11 @@ export async function mountMap(): Promise<L.Map> {
   mountLegend();
 
   const [basin, rivers, springs] = await Promise.all([fetchBasin(), fetchWatercourseLines(), fetchSprings()]);
+  // Veil everything outside the catchment, then draw its edge over a white halo so it reads on any tile.
+  const outlines = basin.features.flatMap((f) => f.geometry.coordinates.map((polygon: number[][][]) => polygon[0].map(([lng, lat]) => [lat, lng])));
+  const world = [[85, -180], [85, 180], [-85, 180], [-85, -180]];
+  if (outlines.length) L.polygon([world, ...outlines] as any, { interactive: false, className: "basin-mask" }).addTo(map);
+  L.geoJSON(basin as any, { interactive: false, style: { className: "basin-halo" } }).addTo(map);
   const basinLayer = L.geoJSON(basin as any, { interactive: false, style: { className: "basin" } }).addTo(map);
   if (basin.features.length) map.fitBounds(basinLayer.getBounds(), { padding: [12, 12] });
   L.geoJSON(rivers as any, { interactive: false, style: { className: "river" } }).addTo(map);
@@ -88,7 +93,7 @@ function mountLegend(): void {
   $("#legend").innerHTML =
     `<h2>Débit observé</h2><ul>` +
     FLOW_LEVELS.map((k) => `<li><i style="--c:${FLOW[k].colour}"></i>${FLOW[k].label}</li>`).join("") +
-    `<li><i class="spring"></i>Source (IGN / OFB)</li><li><i class="group">3</i>Photos au même endroit</li></ul>`;
+    `<li><i class="basin"></i>Bassin versant du Saurat</li><li><i class="spring"></i>Source (IGN / OFB)</li><li><i class="group">3</i>Photos au même endroit</li></ul>`;
 }
 
 /** Centre the map on a place, e.g. from the river view's "Voir sur la carte". */
