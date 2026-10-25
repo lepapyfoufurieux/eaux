@@ -2,7 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchBasin, fetchSprings, fetchWatercourseLines } from "../../api";
 import { FLOW, FLOW_LEVELS, UNKNOWN_COLOUR, flowColour } from "../../domain/flow";
-import { centre, groupByPlace } from "../../domain/grouping";
+import { groupForMap } from "../../domain/grouping";
 import { springLevel, watercourseLevels } from "../../domain/mapLevels";
 import { monthIndex } from "../../domain/months";
 import { $, esc, formatDate } from "../../html";
@@ -84,10 +84,10 @@ function render(state: AppState): void {
     return m >= lo && m <= hi;
   });
   renderWater(visible, state);
-  for (const group of groupByPlace(visible)) {
+  for (const { at, readings: group } of groupForMap(visible, state.stations)) {
     group.sort((a, b) => a.takenAt.getTime() - b.takenAt.getTime());
     const latest = group[group.length - 1];
-    const marker = L.marker(centre(group), {
+    const marker = L.marker(at, {
       icon: pinIcon(FLOW[latest.flowLevel].colour, group.length),
       title: group.length > 1 ? `${group.length} photos` : FLOW[latest.flowLevel].label,
     });

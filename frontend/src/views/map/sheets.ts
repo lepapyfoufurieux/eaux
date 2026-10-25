@@ -1,10 +1,13 @@
 import { FLOW } from "../../domain/flow";
 import { esc, formatDate } from "../../html";
+import { state } from "../../state";
 import type { Reading } from "../../types";
 
 /** Popup content for one reading (cahier des charges, 2.3 "Fiche Photo"). */
 export function readingSheet(r: Reading): string {
+  const station = state.stations.find((s) => s.code === r.station);
   return `<div class="sheet-reading">
+    ${station ? `<div class="where">${esc(station.code)} · ${esc(station.name)}</div>` : ""}
     <div class="who">${esc(r.authorName)}</div>
     <div class="when">${formatDate(r.takenAt)}</div>
     <a class="photo" href="${r.photo}" target="_blank" rel="noopener"><img src="${r.thumbnail}" alt="Photo du cours d'eau, ${FLOW[r.flowLevel].label.toLowerCase()}"></a>

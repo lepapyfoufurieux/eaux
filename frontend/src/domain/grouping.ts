@@ -22,3 +22,24 @@ export function centre(points: LatLng[]): LatLng {
   const lng = points.reduce((sum, p) => sum + p.lng, 0) / points.length;
   return { lat, lng };
 }
+
+/**
+ * Map pins: one per station, on the station, holding every photo attached to it; photos with no
+ * station keep the 50 m grouping. Two shots of one station from either bank then stay one pin.
+ */
+export function groupForMap<T extends LatLng & { station: string | null }>(
+  readings: T[],
+  stations: (LatLng & { code: string })[],
+): { at: LatLng; readings: T[] }[] {
+  const where = new Map(stations.map((s) => [s.code, { lat: s.lat, lng: s.lng }]));
+  const byStation = new Map<string, T[]>();
+  const loose: T[] = [];
+  for (const r of readings) {
+    if (r.station && where.has(r.station)) byStation.set(r.station, [...(byStation.get(r.station) ?? []), r]);
+    else loose.push(r);
+  }
+  return [
+    ...[...byStation].map(([code, group]) => ({ at: where.get(code)!, readings: group })),
+    ...groupByPlace(loose).map((group) => ({ at: centre(group), readings: group })),
+  ];
+}
