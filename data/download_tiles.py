@@ -64,21 +64,25 @@ def fetch(zxy):
     raise RuntimeError(f"tile {z}/{x}/{y} failed 5 times")
 
 
+def progress(i, total):
+    """One line redrawn in place, read by the testers in their start window."""
+    filled = 30 * i // total
+    print(f"\r   [{'█' * filled}{'░' * (30 - filled)}] {100 * i // total:3d} %  ({i} / {total} tuiles)", end="", flush=True)
+
+
 def main():
     todo = [t for t in tiles() if not (TILES / str(t[0]) / str(t[1]) / f"{t[2]}.png").exists()]
     if not todo:
-        print("Map tiles: all present, nothing to download")
+        print("   Fond de carte déjà téléchargé.")
         return
-    print(f"Map tiles: downloading {len(todo)}", flush=True)
-    done = 0
+    progress(0, len(todo))
     # A few parallel requests: fast enough, and polite to a free public service.
     with ThreadPoolExecutor(max_workers=4) as pool:
-        for i, fetched in enumerate(pool.map(fetch, todo), start=1):
-            done += fetched
-            if i % 500 == 0:
-                print(f"{i}/{len(todo)}", flush=True)
+        for i, _ in enumerate(pool.map(fetch, todo), start=1):
+            if 100 * i // len(todo) != 100 * (i - 1) // len(todo):
+                progress(i, len(todo))
     size = sum(p.stat().st_size for p in TILES.rglob("*.png"))
-    print(f"Map tiles: {done} downloaded, {size / 1e6:.0f} MB in data/tiles")
+    print(f"\n   Fond de carte téléchargé ({size / 1e6:.0f} Mo).")
 
 
 if __name__ == "__main__":

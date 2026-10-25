@@ -47,7 +47,7 @@ docker compose exec -T backend python manage.py seed_demo >nul 2>&1
 
 echo  Fond de carte : la première fois, son téléchargement prend quelques minutes.
 rem Tiles already downloaded are skipped. A failure is not fatal: the map then takes them from the IGN.
-docker compose exec -T backend python /data/download_tiles.py >nul 2>&1
+docker compose exec -T backend python /data/download_tiles.py 2>nul
 
 echo.
 echo  C'est prêt ! Le site s'ouvre dans votre navigateur : https://localhost
