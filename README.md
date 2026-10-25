@@ -42,7 +42,7 @@ ops/        Caddy image, backup script, restore procedure
 
 ## Running locally
 
-Requirements: Python 3.12+, Node 22, PostgreSQL with PostGIS, GDAL.
+Requirements: Python 3.15, Node 26, PostgreSQL 18 with PostGIS 3.6, GDAL.
 
 ```sh
 # Database (once)
@@ -74,6 +74,8 @@ cp .env.example .env    # set SITE_ADDRESS, secrets and passwords
 docker compose up -d --build
 docker compose exec backend python manage.py createsuperuser
 ```
+
+Upgrading from the PostgreSQL 16 stack: the database volume layout changed with PostgreSQL 18, so an old `pgdata` volume will not start. Development data can simply be recreated with `docker compose down -v`, then `up -d --build` and `seed_demo`. Real data must be dumped with `ops/backup.sh` before the upgrade and restored with `ops/restore.md` after it.
 
 Caddy obtains the HTTPS certificate for `SITE_ADDRESS` automatically. Set up `ops/backup.sh` as a nightly cron job and test `ops/restore.md` once per quarter.
 

@@ -1,5 +1,5 @@
-Django>=5.1,<5.2
+Django>=6.1,<6.2
 django-ninja>=1.7,<2
-psycopg[binary]>=3.2,<4
-Pillow>=11,<12
-gunicorn>=23,<24
+psycopg[binary]>=3.3,<4
+Pillow>=13,<14
+gunicorn>=26,<27
