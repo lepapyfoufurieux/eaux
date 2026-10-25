@@ -42,6 +42,8 @@ ops/        Caddy image, backup script, restore procedure
 
 ## Running locally
 
+Non-technical testers: open `tester-le-site/GUIDE.html` (French, Docker Desktop and double-click scripts).
+
 Requirements: Python 3.15, Node 26, PostgreSQL 18 with PostGIS 3.6, GDAL.
 
 ```sh

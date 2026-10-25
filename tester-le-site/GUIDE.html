@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tester le site Eaux de Saurat</title>
+  <style>
+    :root {
+      --bg: #f6f8f7;
+      --card: #ffffff;
+      --text: #1d2a2a;
+      --muted: #5b6b6b;
+      --accent: #1f6f8b;
+      --accent-soft: #e3f0f4;
+      --ok: #2e7d4f;
+      --ok-soft: #e6f4ec;
+      --warn: #8a5a00;
+      --warn-soft: #fdf3dc;
+      --border: #dde5e3;
+      --code-bg: #1d2a2a;
+      --code-text: #e8f1ef;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121a1a;
+        --card: #1b2525;
+        --text: #e6eeec;
+        --muted: #9fb0ad;
+        --accent: #6fb8d2;
+        --accent-soft: #1d3540;
+        --ok: #7fcf9c;
+        --ok-soft: #1c3326;
+        --warn: #f0c060;
+        --warn-soft: #3a2f16;
+        --border: #2c3a39;
+        --code-bg: #0b1111;
+        --code-text: #e8f1ef;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 18px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+    h2 { font-size: 1.35rem; margin: 48px 0 16px; color: var(--accent); }
+    h3 { font-size: 1.15rem; margin: 0 0 12px; display: flex; gap: 12px; align-items: center; }
+    p { margin: 0 0 12px; }
+    ol, ul { margin: 0 0 12px; padding-left: 1.4em; }
+    li { margin-bottom: 6px; }
+    a { color: var(--accent); }
+    kbd {
+      font: 0.85em ui-monospace, Consolas, monospace;
+      border: 1px solid var(--border); border-bottom-width: 2px;
+      border-radius: 4px; padding: 1px 6px; background: var(--card);
+    }
+    code.file {
+      font: 0.9em ui-monospace, Consolas, monospace;
+      background: var(--accent-soft); padding: 2px 6px; border-radius: 4px;
+    }
+    .intro { color: var(--muted); font-size: 1.05rem; }
+    .reassure {
+      background: var(--ok-soft); border-radius: 12px; padding: 16px 20px; margin: 24px 0;
+    }
+    .reassure ul { margin: 8px 0 0; }
+
+    /* Windows / Mac switch: CSS only, the radios drive what is shown */
+    .os-switch {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      background: var(--bg); padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .os-switch input { position: absolute; opacity: 0; }
+    .os-switch label {
+      cursor: pointer; padding: 8px 18px; border-radius: 999px;
+      border: 2px solid var(--border); background: var(--card); font-weight: 600;
+    }
+    #os-win:checked + label, #os-mac:checked + label {
+      border-color: var(--accent); background: var(--accent); color: #fff;
+    }
+    .os-switch input:focus-visible + label { outline: 3px solid var(--accent); outline-offset: 2px; }
+    body:has(#os-win:checked) .mac { display: none; }
+    body:has(#os-mac:checked) .win { display: none; }
+
+    .step {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px 22px; margin-bottom: 16px;
+    }
+    .num {
+      flex: none; width: 36px; height: 36px; border-radius: 50%;
+      background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 1rem;
+    }
+    .once {
+      font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px;
+    }
+    .ok, .warn { border-radius: 10px; padding: 10px 14px; margin-top: 14px; }
+    .ok { background: var(--ok-soft); }
+    .ok strong { color: var(--ok); }
+    .warn { background: var(--warn-soft); }
+    .warn strong { color: var(--warn); }
+
+    .cmd {
+      display: flex; align-items: center; gap: 8px; margin: 10px 0;
+      background: var(--code-bg); color: var(--code-text); border-radius: 10px; padding: 10px 10px 10px 16px;
+    }
+    .cmd code { flex: 1; font: 0.95rem ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+    .cmd button {
+      flex: none; cursor: pointer; font: inherit; font-size: 0.85rem; font-weight: 600;
+      border: 0; border-radius: 6px; padding: 6px 12px; background: var(--accent); color: #fff;
+    }
+
+    table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
+    th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    th { background: var(--accent-soft); }
+    tr:last-child td { border-bottom: 0; }
+    @media (max-width: 560px) {
+      body { font-size: 17px; }
+      table, tbody, tr, td { display: block; }
+      thead { display: none; }
+      td:first-child { font-weight: 600; padding-bottom: 0; border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Tester le site Eaux de Saurat sur votre ordinateur</h1>
+  <p class="intro">Ce guide vous permet d'essayer le site chez vous, avec des données inventées.
+    Pas besoin de connaissances techniques : vous allez surtout ouvrir des fichiers.</p>
+
+  <div class="reassure">
+    <strong>Vous ne pouvez rien casser.</strong> Tout reste sur votre ordinateur, le vrai site n'est pas touché.
+    <ul>
+      <li>Durée : environ 30 minutes la première fois (le temps des téléchargements), 2 minutes ensuite.</li>
+      <li>Il vous faut : un ordinateur Windows 10/11 ou Mac, Internet, et environ 5 Go de place libre.</li>
+    </ul>
+  </div>
+
+  <div class="os-switch" role="radiogroup" aria-label="Votre ordinateur">
+    <span>Votre ordinateur :</span>
+    <input type="radio" name="os" id="os-win" checked><label for="os-win">Windows</label>
+    <input type="radio" name="os" id="os-mac"><label for="os-mac">Mac</label>
+  </div>
+
+  <h2>Préparation</h2>
+
+  <section class="step">
+    <h3><span class="num">1</span> Installer Docker Desktop <span class="once">une seule fois</span></h3>
+    <p>Docker Desktop est un logiciel gratuit qui fait fonctionner le site sur votre ordinateur.</p>
+    <ol>
+      <li>Allez sur <a href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener">docker.com/products/docker-desktop</a>.</li>
+      <li class="win">Cliquez sur <strong>Download for Windows</strong>.</li>
+      <li class="mac">Cliquez sur <strong>Download for Mac</strong>, puis choisissez <strong>Apple Silicon</strong>
+        (Mac récent, puce M1, M2…) ou <strong>Intel</strong> (Mac plus ancien).
+        En cas de doute : menu  → <em>À propos de ce Mac</em>.</li>
+      <li>Ouvrez le fichier téléchargé et suivez l'installation en gardant les choix proposés.
+        <span class="win">Si on vous parle de « WSL », acceptez.</span>
+        Si on vous demande de redémarrer, faites-le.</li>
+      <li>Ouvrez <strong>Docker Desktop</strong>. S'il propose de créer un compte, cliquez sur <strong>Skip</strong> (passer).</li>
+    </ol>
+    <div class="ok"><strong>✅ C'est bon quand</strong> la fenêtre de Docker Desktop affiche <strong>Engine running</strong> en bas à gauche.</div>
+  </section>
+
+  <section class="step">
+    <h3><span class="num">2</span> Télécharger le site <span class="once">une seule fois</span></h3>
+    <p>Si vous avez déjà le dossier du site sur votre ordinateur (ce guide se trouve dedans), passez directement au point 3 ci-dessous.</p>
+    <ol>
+      <li>Cliquez sur ce lien : <a href="https://github.com/lepapyfoufurieux/eaux/archive/refs/heads/main.zip"><strong>télécharger le site (fichier ZIP)</strong></a>.
+        Le fichier <code class="file">eaux-main.zip</code> arrive dans votre dossier <strong>Téléchargements</strong>.
+        <br><small>Autre façon : sur la page <a href="https://github.com/lepapyfoufurieux/eaux" target="_blank" rel="noopener">github.com/lepapyfoufurieux/eaux</a>,
+        cliquez sur le bouton vert <strong>Code</strong>, puis sur <strong>Download ZIP</strong>.</small></li>
+      <li>Décompressez-le :
+        <span class="win">dans <strong>Téléchargements</strong>, faites un clic droit sur <code class="file">eaux-main.zip</code> → <strong>Extraire tout…</strong> → <strong>Extraire</strong>.</span>
+        <span class="mac">dans <strong>Téléchargements</strong>, double-cliquez sur <code class="file">eaux-main.zip</code>
+          (Safari le fait parfois tout seul : vous verrez alors directement un dossier <code class="file">eaux-main</code>).</span></li>
+      <li>Ouvrez le dossier <code class="file">eaux-main</code>.
+        <span class="win">S'il contient seulement un autre dossier <code class="file">eaux-main</code>, ouvrez celui-ci : c'est lui, le dossier du site.</span></li>
+      <li>Déplacez le dossier du site dans <strong>Documents</strong> pour le retrouver facilement.</li>
+    </ol>
+    <div class="ok"><strong>✅ C'est bon quand</strong> le dossier du site contient <code class="file">backend</code>, <code class="file">frontend</code> et <code class="file">tester-le-site</code>.</div>
+  </section>
+
+  <h2>Lancer le site</h2>
+
+  <section class="step">
+    <h3><span class="num">3</span> Démarrer le site</h3>
+    <p>Vérifiez d'abord que <strong>Docker Desktop est ouvert</strong> et affiche <strong>Engine running</strong>.</p>
+
+    <div class="win">
+      <ol>
+        <li>Ouvrez le dossier <code class="file">tester-le-site</code>.</li>
+        <li>Double-cliquez sur <code class="file">demarrer-windows</code>.</li>
+        <li>Si Windows affiche <em>« Windows a protégé votre ordinateur »</em>, cliquez sur
+          <strong>Informations complémentaires</strong> puis <strong>Exécuter quand même</strong>.</li>
+      </ol>
+    </div>
+
+    <div class="mac">
+      <ol>
+        <li>Ouvrez l'application <strong>Terminal</strong> (cherchez « Terminal » avec la loupe en haut à droite de l'écran).</li>
+        <li>Copiez ce texte et collez-le dans le Terminal avec <kbd>Cmd</kbd>+<kbd>V</kbd>, <strong>sans appuyer sur Entrée</strong> :
+          <div class="cmd"><code>sh </code><button type="button">Copier</button></div>
+        </li>
+        <li>Ouvrez le dossier <code class="file">tester-le-site</code> dans le Finder et <strong>faites glisser</strong>
+          le fichier <code class="file">demarrer-mac.sh</code> dans la fenêtre du Terminal.</li>
+        <li>Appuyez sur <kbd>Entrée</kbd>.</li>
+      </ol>
+    </div>
+
+    <p>Une fenêtre noire s'ouvre et beaucoup de texte défile. <strong>C'est normal, laissez faire.</strong>
+      La première fois, cela prend <strong>5 à 15 minutes</strong>.</p>
+    <div class="ok"><strong>✅ C'est bon quand</strong> la fenêtre affiche <em>« C'est prêt ! »</em> et que le site s'ouvre tout seul dans votre navigateur.</div>
+  </section>
+
+  <section class="step">
+    <h3><span class="num">4</span> Passer l'avertissement du navigateur</h3>
+    <p>Le navigateur affiche un message comme <em>« Votre connexion n'est pas privée »</em> ou
+      <em>« Attention : risque probable de sécurité »</em>.</p>
+    <p><strong>C'est normal et sans danger</strong> : le site est sur votre propre ordinateur, il n'a donc pas de certificat officiel.</p>
+    <ul>
+      <li><strong>Chrome, Edge :</strong> cliquez sur <strong>Paramètres avancés</strong>, puis <strong>Continuer vers le site localhost</strong>.</li>
+      <li><strong>Firefox :</strong> cliquez sur <strong>Avancé…</strong>, puis <strong>Accepter le risque et poursuivre</strong>.</li>
+      <li class="mac"><strong>Safari :</strong> cliquez sur <strong>Afficher les détails</strong>, puis <strong>visiter ce site web</strong>.</li>
+    </ul>
+    <p>Si le site ne s'est pas ouvert tout seul, tapez <a href="https://localhost" target="_blank" rel="noopener">https://localhost</a> dans la barre d'adresse.</p>
+    <div class="ok"><strong>✅ C'est bon quand</strong> vous voyez la carte du bassin du Saurat avec des points de couleur. 🎉</div>
+  </section>
+
+  <h2>Tester</h2>
+
+  <section class="step">
+    <h3><span class="num">5</span> Essayer le site</h3>
+    <p>Essayez librement, par exemple :</p>
+    <ul>
+      <li><strong>La carte</strong> : cliquez sur un point pour voir la photo. Déplacez la barre du temps en bas pour changer de période.</li>
+      <li><strong>Le fil de l'eau</strong> : le plan de la rivière et de ses ruisseaux. Changez de mois pour voir les couleurs évoluer.</li>
+      <li><strong>Publier une photo</strong> : prenez une photo avec votre téléphone, la localisation activée, et publiez-la.
+        Le site doit retrouver tout seul l'endroit et la date.</li>
+      <li><strong>L'export</strong> : téléchargez les relevés sous forme de tableau.</li>
+    </ul>
+    <div class="warn"><strong>📝 Notez tout ce qui vous surprend</strong>, ce qui ne marche pas ou ce qui n'est pas clair.
+      Une capture d'écran avec une phrase d'explication, c'est parfait.</div>
+  </section>
+
+  <h2>Arrêter et relancer</h2>
+
+  <section class="step">
+    <h3><span class="num">6</span> Arrêter le site quand vous avez fini</h3>
+    <p class="win">Dans le dossier <code class="file">tester-le-site</code>, double-cliquez sur <code class="file">arreter-windows</code>.</p>
+    <p class="mac">Comme à l'étape 3 : dans le Terminal, collez <code class="file">sh </code>, glissez le fichier
+      <code class="file">arreter-mac.sh</code>, puis <kbd>Entrée</kbd>.</p>
+    <p>Vos essais sont gardés pour la prochaine fois.</p>
+    <p><strong>Pour relancer plus tard</strong> : ouvrez Docker Desktop, attendez <strong>Engine running</strong>, puis refaites l'étape 3.
+      Ce sera beaucoup plus rapide que la première fois.</p>
+  </section>
+
+  <h2>Pour aller plus loin (facultatif)</h2>
+
+  <section class="step">
+    <h3><span class="num">7</span> Accéder à l'espace d'administration</h3>
+    <p>L'administration sert à vérifier les photos publiées et à gérer les stations. Le site doit être démarré.</p>
+    <p class="win">Dans le dossier <code class="file">tester-le-site</code>, double-cliquez sur <code class="file">creer-admin-windows</code>.</p>
+    <p class="mac">Dans le Terminal, collez <code class="file">sh </code>, glissez le fichier <code class="file">creer-admin-mac.sh</code>, puis <kbd>Entrée</kbd>.</p>
+    <p>La fenêtre vous pose trois questions. Tapez la réponse puis <kbd>Entrée</kbd> à chaque fois :</p>
+    <ol>
+      <li><strong>Username</strong> : un nom d'utilisateur, par exemple <code class="file">admin</code>.</li>
+      <li><strong>Email address</strong> : vous pouvez laisser vide et appuyer directement sur <kbd>Entrée</kbd>.</li>
+      <li><strong>Password</strong> puis <strong>Password (again)</strong> : un mot de passe, deux fois.
+        <strong>Il ne s'affiche pas pendant que vous le tapez</strong> : c'est normal.</li>
+    </ol>
+    <p>La page <a href="https://localhost/admin" target="_blank" rel="noopener">https://localhost/admin</a> s'ouvre ensuite : connectez-vous avec ce nom et ce mot de passe.</p>
+  </section>
+
+  <h2>Un problème ?</h2>
+
+  <table>
+    <thead><tr><th>Ce que vous voyez</th><th>Ce qu'il faut faire</th></tr></thead>
+    <tbody>
+      <tr><td>« Docker Desktop n'est pas démarré »</td>
+        <td>Ouvrez Docker Desktop, attendez <strong>Engine running</strong>, puis refaites l'étape 3.</td></tr>
+      <tr><td><code class="file">no configuration file provided</code></td>
+        <td>Le dossier n'est sans doute pas décompressé. Refaites l'étape 2.</td></tr>
+      <tr><td><code class="file">port is already allocated</code> ou <code class="file">address already in use</code></td>
+        <td>Un autre logiciel utilise la même « porte » que le site (Skype par exemple). Fermez-le ou redémarrez l'ordinateur, puis refaites l'étape 3.</td></tr>
+      <tr><td>« Le site met trop de temps à démarrer »</td>
+        <td>Redémarrez Docker Desktop (clic droit sur la baleine → <em>Restart</em>), puis refaites l'étape 3.</td></tr>
+      <tr class="mac"><td><code class="file">No such file or directory</code> dans le Terminal</td>
+        <td>Le fichier n'a pas été bien glissé. Vérifiez qu'il y a un espace après <code class="file">sh</code> et recommencez.</td></tr>
+      <tr><td>La page ne s'affiche pas</td>
+        <td>Attendez une minute, puis rechargez la page. Vérifiez que l'adresse est bien <strong>https</strong>://localhost.</td></tr>
+      <tr><td>Autre chose</td>
+        <td>Faites une capture d'écran de la fenêtre noire et envoyez-la à l'équipe, en expliquant ce que vous faisiez.</td></tr>
+    </tbody>
+  </table>
+</main>
+
+<script>
+  // Preselect the visitor's system; the switch works without this.
+  if (/Mac/.test(navigator.platform || navigator.userAgent)) document.getElementById("os-mac").checked = true;
+
+  document.querySelectorAll(".cmd button").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var text = button.previousElementSibling.textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        button.textContent = "Copié ✓";
+        setTimeout(function () { button.textContent = "Copier"; }, 2000);
+      }, function () {
+        button.textContent = "Copiez à la main";
+      });
+    });
+  });
+</script>
+</body>
+</html>
