@@ -26,6 +26,16 @@ python data/prepare_basin.py    # needs numpy and access to data.geopf.fr; cache
 
 The script stops if the outline misses part of the Saurat or takes in Tarascon. `backend/geo/tests/test_basin.py` checks the committed file the same way after import.
 
+## Map tiles
+
+The map shows only the valley and its surroundings, from a local copy of the Plan IGN tiles (Licence Ouverte, credited "© IGN"):
+
+```sh
+python data/download_tiles.py   # zooms 11 to 17, about 5,000 tiles and 85 MB in data/tiles/ (ignored by git); run again to resume
+```
+
+In the Docker stack: `docker compose exec backend python /data/download_tiles.py` (the testers' start scripts run it). Tiles already on disk are never downloaded again. Caddy serves them at `/tiles/` (Django does in development). A tile missing there is fetched from the Géoplateforme, so the map also works before the download.
+
 ## After the import
 
 Set each tributary's `tributary_of` and `confluence_position` in the admin, then create the stations (code S01…, watercourse, order from upstream). The river plan view is drawn from those fields.

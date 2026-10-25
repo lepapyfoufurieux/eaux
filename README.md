@@ -75,6 +75,7 @@ On a small VPS with Docker:
 cp .env.example .env    # set SITE_ADDRESS, secrets and passwords
 docker compose up -d --build
 docker compose exec backend python manage.py createsuperuser
+docker compose exec backend python /data/download_tiles.py   # map tiles, once (85 MB); later runs skip them
 ```
 
 Upgrading from the PostgreSQL 16 stack: the database volume layout changed with PostgreSQL 18, so an old `pgdata` volume will not start. Development data can simply be recreated with `docker compose down -v`, then `up -d --build` and `seed_demo`. Real data must be dumped with `ops/backup.sh` before the upgrade and restored with `ops/restore.md` after it.

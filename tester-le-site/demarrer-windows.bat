@@ -45,6 +45,10 @@ goto attente
 rem seed_demo refuses a database that already holds data, which is expected after the first start.
 docker compose exec -T backend python manage.py seed_demo >nul 2>&1
 
+echo  Fond de carte : la première fois, son téléchargement prend quelques minutes.
+rem Tiles already downloaded are skipped. A failure is not fatal: the map then takes them from the IGN.
+docker compose exec -T backend python /data/download_tiles.py >nul 2>&1
+
 echo.
 echo  C'est prêt ! Le site s'ouvre dans votre navigateur : https://localhost
 start "" https://localhost

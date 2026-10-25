@@ -26,8 +26,9 @@ services:
     volumes:
       - media:/app/media
       - static:/app/staticfiles
-      # Reference geodata, for import_geodata and seed_demo.
+      # Reference geodata, for import_geodata and seed_demo; tiles writable for download_tiles.py.
       - ./data:/data:ro
+      - ./data/tiles:/data/tiles
 
   web:
     build:
@@ -44,6 +45,7 @@ services:
     volumes:
       - media:/srv/media:ro
       - static:/srv/static:ro
+      - ./data/tiles:/srv/tiles:ro
       - caddy_data:/data
 
 volumes:

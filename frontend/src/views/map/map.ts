@@ -10,10 +10,17 @@ import { type AppState, subscribe } from "../../state";
 import type { Reading } from "../../types";
 import { groupSheet, readingSheet } from "./sheets";
 
-// Plan IGN from the Géoplateforme: free, no key, shows the small brooks well.
+// Plan IGN tiles of the valley, downloaded by data/download_tiles.py up to this zoom; the map enlarges them above it.
+const LOCAL_TILES = "/tiles/{z}/{x}/{y}.png";
+const MAX_LOCAL_ZOOM = 17;
+// The area shown, as in data/prepare_basin.py: the valley and its surroundings, nothing more.
+const AREA = L.latLngBounds([42.83, 1.43], [42.93, 1.63]);
+// Plan IGN from the Géoplateforme (free, no key, shows the small brooks well), for tiles missing locally.
 const IGN_PLAN =
   "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2" +
   "&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}";
+
+const TILE_RETRIES = 4;
 
 const pinIcon = (colour: string, count = 1) =>
   L.divIcon({
@@ -33,9 +40,23 @@ const levelText = (r: Reading | null | undefined) =>
   r ? `${FLOW[r.flowLevel].label}, le ${formatDate(r.takenAt)}` : "Pas de relevé sur la période";
 
 export async function mountMap(): Promise<L.Map> {
-  map = L.map("map", { zoomControl: false, minZoom: 11, maxZoom: 18 }).setView([42.875, 1.52], 13);
+  map = L.map("map", { zoomControl: false, maxZoom: 18, maxBounds: AREA, maxBoundsViscosity: 1 }).setView([42.875, 1.52], 13);
+  // Zooming out stops once the whole area is in view.
+  const fitMinZoom = () => map.getSize().x > 0 && map.setMinZoom(map.getBoundsZoom(AREA));
+  fitMinZoom();
+  map.on("resize", fitMinZoom);
   L.control.zoom({ position: "topright", zoomInTitle: "Zoomer", zoomOutTitle: "Dézoomer" }).addTo(map);
-  L.tileLayer(IGN_PLAN, { maxZoom: 18, attribution: "© IGN Géoplateforme · relevés des habitants" }).addTo(map);
+  L.tileLayer(LOCAL_TILES, { bounds: AREA, maxNativeZoom: MAX_LOCAL_ZOOM, maxZoom: 18, attribution: "© IGN Plan IGN · relevés des habitants" })
+    // A tile missing locally comes from the Géoplateforme. It sometimes answers with a passing 404 that the browser
+    // caches, and Leaflet never retries, so each retry asks for a slightly different URL (the server ignores the parameter).
+    .on("tileerror", ({ tile, coords }) => {
+      const tries = Number(tile.dataset.tries ?? 0);
+      if (tries >= TILE_RETRIES) return;
+      tile.dataset.tries = String(tries + 1);
+      const src = L.Util.template(IGN_PLAN, coords) + (tries ? `&retry=${tries}` : "");
+      setTimeout(() => (tile.src = src), 1000 * tries);
+    })
+    .addTo(map);
   mountLegend();
 
   const [basin, riverLines, springPoints] = await Promise.all([fetchBasin(), fetchWatercourseLines(), fetchSprings()]);

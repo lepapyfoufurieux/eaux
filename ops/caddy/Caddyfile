@@ -25,6 +25,15 @@
 		file_server
 	}
 
+	# Plan IGN tiles of the valley (data/download_tiles.py); a missing one is a 404 the map fetches from the IGN.
+	handle_path /tiles/* {
+		root * /srv/tiles
+		# Only found tiles: a cached 404 would keep a tile on the IGN fallback after a later download.
+		@found file
+		header @found Cache-Control "public, max-age=2592000"
+		file_server
+	}
+
 	# Frontend (built by Vite)
 	handle {
 		# Vite puts a hash in asset names: cache them for good, and always revalidate the page

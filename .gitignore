@@ -13,3 +13,4 @@ frontend/dist/
 backend/media/
 backend/staticfiles/
 data/raw/
+data/tiles/
