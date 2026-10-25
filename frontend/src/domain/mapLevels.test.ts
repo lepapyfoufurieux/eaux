@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Reading, Station } from "../types";
-import { headPieces, springLevels, watercourseLevels } from "./mapLevels";
+import { headPieces, readingPieces, springLevels, stretchFinder, watercourseLevels } from "./mapLevels";
 
 const reading = (date: string, station: string | null, lat = 42.87): Reading => ({
   id: date,
@@ -64,5 +64,32 @@ describe("headPieces", () => {
     ];
     expect(headPieces([head], (h) => h, watercourses).get(head)).toEqual({ id: 1, piece: 1 });
     expect(headPieces([p(42.9)], (h) => h, watercourses).size).toBe(0);
+  });
+});
+
+describe("readingPieces", () => {
+  it("gives a photo with no station to the piece of watercourse it was taken on", () => {
+    // A west-east line through 42.87 N; the photo is about 11 m north of it, mid-way.
+    const line = [{ lat: 42.87, lng: 1.5 }, { lat: 42.87, lng: 1.52 }];
+    const far = [{ lat: 42.88, lng: 1.5 }, { lat: 42.88, lng: 1.52 }];
+    const pieces = readingPieces([reading("2026-05-01", null, 42.8701)], [{ id: 7, pieces: [far, line] }]);
+    expect([...pieces.values()].map(({ id, piece }) => ({ id, piece }))).toEqual([{ id: 7, piece: 1 }]);
+    expect(readingPieces([reading("2026-05-01", "S01", 42.8701)], [{ id: 7, pieces: [line] }]).size).toBe(0);
+  });
+});
+
+describe("stretchFinder", () => {
+  it("chains lines up to a real junction, even under another watercourse", () => {
+    const p = (lng: number) => ({ lat: 42.87, lng });
+    const side = { lat: 42.88, lng: 1.52 };
+    // 1.50 → 1.51 → 1.52 is one stretch, cut in two and carried on by watercourse 3; at 1.52 brook 2 joins.
+    const stretch = stretchFinder([
+      { id: 1, pieces: [[p(1.5), p(1.51)], [p(1.52), p(1.53)]] },
+      { id: 3, pieces: [[p(1.51), p(1.52)]] },
+      { id: 2, pieces: [[side, p(1.52)]] },
+    ]);
+    const ids = (id: number, piece: number) => stretch(id, piece).map((s) => `${s.id}:${s.piece}`).sort();
+    expect(ids(1, 0)).toEqual(["1:0", "3:0"]);
+    expect(ids(1, 1)).toEqual(["1:1"]);
   });
 });

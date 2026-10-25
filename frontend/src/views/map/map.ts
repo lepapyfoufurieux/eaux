@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { fetchBasin, fetchSprings, fetchWatercourseLines } from "../../api";
 import { FLOW, FLOW_LEVELS, UNKNOWN_COLOUR, flowColour } from "../../domain/flow";
 import { groupForMap } from "../../domain/grouping";
-import { headPieces, later, springLevels, watercourseLevels } from "../../domain/mapLevels";
+import { headPieces, later, readingPieces, springLevels, stretchFinder, watercourseLevels } from "../../domain/mapLevels";
 import { monthIndex } from "../../domain/months";
 import { $, esc, formatDate } from "../../html";
 import { type AppState, subscribe } from "../../state";
@@ -35,6 +35,9 @@ let rivers: Awaited<ReturnType<typeof fetchWatercourseLines>>;
 let springs: Awaited<ReturnType<typeof fetchSprings>>;
 // Spring heads ("Tête de cours d'eau") and the piece of watercourse each one starts: a photo there colours that piece.
 let heads: ReturnType<typeof headPieces<(typeof springs.features)[number]>>;
+// Each watercourse as its separate lines, for the photos with no station taken on one of them.
+let riverPieces: { id: number; pieces: { lat: number; lng: number }[][] }[];
+let stretchOf: ReturnType<typeof stretchFinder>;
 const springAt = (f: (typeof springs.features)[number]) => ({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] });
 const geoLayer = L.layerGroup();
 const readingLayer = L.layerGroup();
@@ -65,13 +68,15 @@ export async function mountMap(): Promise<L.Map> {
   const [basin, riverLines, springPoints] = await Promise.all([fetchBasin(), fetchWatercourseLines(), fetchSprings()]);
   rivers = riverLines;
   springs = springPoints;
+  riverPieces = rivers.features.map((f) => ({
+    id: f.properties.id,
+    pieces: f.geometry.coordinates.map((line: number[][]) => line.map(([lng, lat]) => ({ lat, lng }))),
+  }));
+  stretchOf = stretchFinder(riverPieces);
   heads = headPieces(
     springs.features.filter((f) => f.properties.kind.startsWith("Tête de cours d'eau")),
     springAt,
-    rivers.features.map((f) => ({
-      id: f.properties.id,
-      pieces: f.geometry.coordinates.map((line: number[][]) => line.map(([lng, lat]) => ({ lat, lng }))),
-    })),
+    riverPieces,
   );
   // Veil everything outside the catchment, then draw its edge over a white halo so it reads on any tile.
   const outlines = basin.features.flatMap((f) => f.geometry.coordinates.map((polygon: number[][][]) => polygon[0].map(([lng, lat]) => [lat, lng])));
@@ -127,11 +132,23 @@ function renderWater(visible: Reading[], state: AppState): void {
       );
     },
   }).addTo(geoLayer);
-  // The piece a photographed spring head starts, over its watercourse, with the latest of both readings.
+  // Pieces with their own photos (no station on them, or the spring head they start), over their watercourse,
+  // with the latest of these and the watercourse's own reading.
+  const pieces = readingPieces(visible, riverPieces);
   for (const [head, { id, piece }] of heads) {
     const reading = springLevel.get(head);
+    if (reading) pieces.set(`${id}:${piece}`, { id, piece, reading: later(pieces.get(`${id}:${piece}`)?.reading, reading) });
+  }
+  // A photo colours its whole stretch, not just the line BD TOPAGE happened to cut there.
+  const stretches = new Map<string, { id: number; piece: number; reading: Reading }>();
+  for (const { id: from, piece: start, reading } of pieces.values()) {
+    for (const { id, piece } of stretchOf(from, start)) {
+      stretches.set(`${id}:${piece}`, { id, piece, reading: later(stretches.get(`${id}:${piece}`)?.reading, reading) });
+    }
+  }
+  for (const { id, piece, reading } of stretches.values()) {
     const river = rivers.features.find((f) => f.properties.id === id);
-    if (!reading || !river) continue;
+    if (!river) continue;
     const level = later(levels.get(id), reading);
     const line = river.geometry.coordinates[piece].map(([lng, lat]: number[]) => [lat, lng]);
     L.polyline(line, { interactive: false, className: "river-halo" }).addTo(geoLayer);
