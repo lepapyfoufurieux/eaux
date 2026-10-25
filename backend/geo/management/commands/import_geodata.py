@@ -42,16 +42,21 @@ class Command(BaseCommand):
             self.stdout.write(f"Basin: {Basin.objects.count()} outline(s)")
 
         if watercourses:
+            imported = []
             for f in read_features(watercourses):
                 geom = geometry(f)
                 if geom.geom_type == "LineString":
                     geom = MultiLineString(geom, srid=4326)
-                props = f["properties"]
-                Watercourse.objects.update_or_create(
-                    topage_code=props.get("code", ""),
-                    name=props["name"],
-                    defaults={"geometry": geom},
+                code, name = f["properties"].get("code", ""), f["properties"]["name"]
+                # Match by code, else by name, so watercourses created by hand (with their stations) get their line.
+                w = (
+                    (code and Watercourse.objects.filter(topage_code=code).first())
+                    or Watercourse.objects.filter(topage_code="", name__iexact=name).exclude(id__in=imported).first()
+                    or Watercourse(name=name)
                 )
+                w.topage_code, w.geometry = code, geom
+                w.save()
+                imported.append(w.id)
             self.stdout.write(f"Watercourses: {Watercourse.objects.count()}")
 
         if springs:

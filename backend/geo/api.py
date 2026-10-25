@@ -41,6 +41,7 @@ def watercourses(request):
                 w.geometry,
                 id=w.id,
                 name=w.name,
+                topage_code=w.topage_code,
                 tributary_of=w.tributary_of_id,
                 confluence_position=w.confluence_position,
             )
