@@ -48,8 +48,6 @@ export async function mountMap(): Promise<L.Map> {
   L.geoJSON(basin as any, { interactive: false, style: { className: "basin-halo" } }).addTo(map);
   const basinLayer = L.geoJSON(basin as any, { interactive: false, style: { className: "basin" } }).addTo(map);
   if (basin.features.length) map.fitBounds(basinLayer.getBounds(), { padding: [12, 12] });
-  // A white casing under every watercourse lifts it off the tiles; it never changes, so it is drawn once.
-  L.geoJSON(rivers as any, { interactive: false, style: { className: "river-halo" } }).addTo(map);
   geoLayer.addTo(map);
   readingLayer.addTo(map);
 
@@ -82,8 +80,11 @@ function render(state: AppState): void {
 function renderWater(visible: Reading[], state: AppState): void {
   geoLayer.clearLayers();
   const levels = watercourseLevels(visible, state.stations);
+  const shown = { ...rivers, features: state.hideEmpty ? rivers.features.filter((f) => levels.has(f.properties.id)) : rivers.features };
+  // A white casing under every watercourse lifts it off the tiles.
+  L.geoJSON(shown as any, { interactive: false, style: { className: "river-halo" } }).addTo(geoLayer);
   // Leaflet sets the stroke as an SVG attribute, which ignores var(), so the colour goes through a class.
-  L.geoJSON(rivers as any, {
+  L.geoJSON(shown as any, {
     style: (feature) => ({ className: `river ${levels.get(feature?.properties.id)?.flowLevel ?? "unknown"}` }),
     onEachFeature: (feature, layer) => {
       const p = feature.properties;
@@ -93,7 +94,10 @@ function renderWater(visible: Reading[], state: AppState): void {
       );
     },
   }).addTo(geoLayer);
-  L.geoJSON(springs as any, {
+  const springsShown = state.hideEmpty
+    ? springs.features.filter((f) => springLevel(visible, { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] }))
+    : springs.features;
+  L.geoJSON({ ...springs, features: springsShown } as any, {
     pointToLayer: (feature, latlng) => {
       const reading = springLevel(visible, latlng);
       return L.marker(latlng, {

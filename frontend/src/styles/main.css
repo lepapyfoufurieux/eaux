@@ -52,6 +52,7 @@ body {
 
 .btn { display: inline-block; padding: 7px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: inherit; font: inherit; text-decoration: none; cursor: pointer; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn:disabled { opacity: 0.5; cursor: default; }
 
 main { flex: 1; display: flex; }

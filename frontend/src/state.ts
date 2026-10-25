@@ -15,6 +15,8 @@ export interface AppState {
   /** Month shown on the river plan, and the selected station there. */
   riverMonth: MonthIndex;
   selectedStation: string | null;
+  /** Map only: hide the watercourses and springs with no reading in the range. */
+  hideEmpty: boolean;
 }
 
 type Listener = (state: AppState) => void;
@@ -29,6 +31,7 @@ export const state: AppState = {
   range: monthRange([]),
   riverMonth: monthRange([])[1],
   selectedStation: null,
+  hideEmpty: false,
 };
 
 export function update(patch: Partial<AppState>): void {

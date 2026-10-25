@@ -14,6 +14,8 @@ const MODE_KEY = "eds-mode";
 function showMode(s: AppState): void {
   $("#view-map").hidden = s.mode !== "map";
   $("#view-river").hidden = s.mode !== "river";
+  $("#btn-hide-empty").hidden = s.mode !== "map";
+  $("#btn-hide-empty").setAttribute("aria-pressed", String(s.hideEmpty));
   document.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.mode === s.mode));
   });
@@ -28,6 +30,8 @@ async function start(): Promise<void> {
   document.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => update({ mode: button.dataset.mode as AppState["mode"] }));
   });
+
+  $("#btn-hide-empty").addEventListener("click", () => update({ hideEmpty: !state.hideEmpty }));
 
   const map = await mountMap();
   mountTimeBar();
