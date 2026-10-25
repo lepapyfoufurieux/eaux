@@ -26,6 +26,8 @@ services:
     volumes:
       - media:/app/media
       - static:/app/staticfiles
+      # Reference geodata, for import_geodata and seed_demo.
+      - ./data:/data:ro
 
   web:
     build:
