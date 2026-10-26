@@ -16,6 +16,8 @@ if errorlevel 1 (
 )
 
 if not exist .env copy .env.example .env >nul
+rem Django refuses the placeholder key: give this computer its own (also fixes a .env made before this rule).
+powershell -NoProfile -Command "$k = -join ((1..48) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) }); (Get-Content .env) -replace '^DJANGO_SECRET_KEY=change-me$', ('DJANGO_SECRET_KEY=' + $k) | Set-Content -Encoding ascii .env"
 
 echo  Préparation du site. La première fois, cela peut prendre 5 à 15 minutes.
 echo  Beaucoup de texte va défiler : c'est normal, laissez faire.

@@ -45,10 +45,10 @@ def test_publish_attaches_station_and_strips_metadata(client, basin, stations, p
         assert not image.getexif()
 
 
-def test_contributor_can_pick_another_station(client, basin, stations, photo_file):
+def test_gps_photo_joins_its_nearest_station_whatever_is_sent(client, basin, stations, photo_file):
     response = publish(client, photo_file(), station="S04")
-    assert response.json()["reading"]["station"] == "S04"
-    assert response.json()["station_distance_m"] > 2000
+    assert response.json()["reading"]["station"] == "S02"
+    assert response.json()["station_distance_m"] < 50
 
 
 def without_position(photo, **fields):

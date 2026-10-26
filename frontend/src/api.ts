@@ -9,20 +9,22 @@ async function getJSON<T>(url: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+/** A reading as the API sends it (snake_case), as the app uses it. Used for the list and for a new reading. */
+const toReading = (r: any): Reading => ({
+  id: r.id,
+  takenAt: new Date(r.taken_at),
+  flowLevel: r.flow_level,
+  comment: r.comment,
+  authorName: r.author_name,
+  station: r.station,
+  lat: r.lat,
+  lng: r.lng,
+  photo: r.photo,
+  thumbnail: r.thumbnail,
+});
+
 export async function fetchReadings(): Promise<Reading[]> {
-  const rows = await getJSON<any[]>("/api/readings");
-  return rows.map((r) => ({
-    id: r.id,
-    takenAt: new Date(r.taken_at),
-    flowLevel: r.flow_level,
-    comment: r.comment,
-    authorName: r.author_name,
-    station: r.station,
-    lat: r.lat,
-    lng: r.lng,
-    photo: r.photo,
-    thumbnail: r.thumbnail,
-  }));
+  return (await getJSON<any[]>("/api/readings")).map(toReading);
 }
 
 export async function fetchStations(): Promise<Station[]> {
@@ -85,9 +87,8 @@ export async function publishReading(input: NewReading): Promise<Published> {
   const response = await fetch("/api/readings", { method: "POST", body: form });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail ?? "La publication a échoué. Réessayez plus tard.");
-  const r = body.reading;
   return {
-    reading: { ...r, takenAt: new Date(r.taken_at), flowLevel: r.flow_level, authorName: r.author_name },
+    reading: toReading(body.reading),
     stationDistanceM: body.station_distance_m,
     editKey: body.edit_key,
   };

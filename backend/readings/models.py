@@ -27,14 +27,6 @@ class Station(models.Model):
     location = models.PointField("position", geography=True)
     # Order along its watercourse, from upstream to downstream; drives the river plan layout.
     order = models.PositiveSmallIntegerField("ordre", default=0)
-    reference_reading = models.ForeignKey(
-        "Reading",
-        verbose_name="photo de référence",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="+",
-    )
     active = models.BooleanField("active", default=True)
 
     class Meta:

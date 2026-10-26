@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -11,7 +13,11 @@ def env_list(name, default=""):
 
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-not-secret")
-DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
+# Off unless asked for: a forgotten variable must not put a public site in debug mode.
+DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
+# Both values are public (this file, .env.example): outside debug they would let anyone sign Django data.
+if not DEBUG and SECRET_KEY in ("dev-only-not-secret", "change-me"):
+    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY in .env to a long random value (or DJANGO_DEBUG=true to develop).")
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS]
 
@@ -82,12 +88,16 @@ MEDIA_ROOT = BASE_DIR / "media"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
 
-STATION_ATTACH_RADIUS_M = float(os.environ.get("STATION_ATTACH_RADIUS_M", "400"))
+# Same value in frontend/src/publish/form.ts, which tells the contributor which station the photo will join.
+STATION_ATTACH_RADIUS_M = 400
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# The upload limit counts in this cache: a file cache is shared by the gunicorn workers, a memory one is not.
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": "/tmp/eds-cache"}}
 
 # Caddy sits in front of Django: trust one X-Forwarded-For hop when throttling by IP.
 NINJA_NUM_PROXIES = 1

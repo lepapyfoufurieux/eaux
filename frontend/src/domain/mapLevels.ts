@@ -127,3 +127,14 @@ export function stretchFinder(watercourses: { id: number; pieces: LatLng[][] }[]
     return [...seen.values()];
   };
 }
+
+/** Each watercourse as its separate lines (GeoJSON MultiLineString, [lng, lat] pairs) in LatLng. */
+export function watercoursePieces(
+  features: { geometry: { coordinates: number[][][] } | null; properties: Record<string, any> }[],
+): { id: number; pieces: LatLng[][] }[] {
+  return features.map((f) => ({
+    id: f.properties.id,
+    // A watercourse created by hand, or left empty by a data refresh, has no line (geometry null).
+    pieces: (f.geometry?.coordinates ?? []).map((line) => line.map(([lng, lat]) => ({ lat, lng }))),
+  }));
+}

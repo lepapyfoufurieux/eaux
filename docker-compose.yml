@@ -37,6 +37,7 @@ services:
     restart: unless-stopped
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS}
+      ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-private_ranges}
     ports:
       - "80:80"
       - "443:443"

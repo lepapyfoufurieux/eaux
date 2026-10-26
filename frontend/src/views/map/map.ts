@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { fetchBasin, fetchSprings, fetchWatercourseLines } from "../../api";
 import { FLOW, FLOW_LEVELS, UNKNOWN_COLOUR, flowColour } from "../../domain/flow";
 import { groupForMap } from "../../domain/grouping";
-import { headPieces, later, readingPieces, springLevels, stretchFinder, watercourseLevels } from "../../domain/mapLevels";
+import { headPieces, later, readingPieces, springLevels, stretchFinder, watercourseLevels, watercoursePieces } from "../../domain/mapLevels";
 import { monthIndex } from "../../domain/months";
 import { $, esc, formatDate } from "../../html";
 import { type AppState, subscribe } from "../../state";
@@ -68,11 +68,7 @@ export async function mountMap(): Promise<L.Map> {
   const [basin, riverLines, springPoints] = await Promise.all([fetchBasin(), fetchWatercourseLines(), fetchSprings()]);
   rivers = riverLines;
   springs = springPoints;
-  riverPieces = rivers.features.map((f) => ({
-    id: f.properties.id,
-    // A watercourse created by hand may have no line yet (geometry null).
-    pieces: (f.geometry?.coordinates ?? []).map((line: number[][]) => line.map(([lng, lat]) => ({ lat, lng }))),
-  }));
+  riverPieces = watercoursePieces(rivers.features);
   stretchOf = stretchFinder(riverPieces);
   heads = headPieces(
     springs.features.filter((f) => f.properties.kind.startsWith("Tête de cours d'eau")),

@@ -21,7 +21,7 @@ Browser ──GET /api/readings, /api/stations, /api/geo/*──▶ Caddy ──
 | Model | Key fields | Notes |
 | --- | --- | --- |
 | `readings.Reading` | photo, thumbnail, location, taken_at, flow_level, comment, author_name, station, station_distance_m, status, edit_key_hash | One photo per reading. `status=hidden` is how admins moderate; deleting a reading also deletes its photo files. |
-| `readings.Station` | code (S01…), name, watercourse, location, order, reference_reading, active | Fixed points of the river plan. |
+| `readings.Station` | code (S01…), name, watercourse, location, order, active | Fixed points of the river plan. |
 | `geo.Watercourse` | name, topage_code, geometry, tributary_of, confluence_position | `tributary_of` and `confluence_position` drive the river plan layout. |
 | `geo.Spring` | kind, altitude_m, origin, location | IGN / OFB springs on the map. |
 | `geo.Basin` | outline | Photos outside it are refused. |
@@ -33,7 +33,7 @@ Flow levels are stable codes: `dry`, `very_low`, `normal`, `high` (labels: Assec
 | Rule | Where |
 | --- | --- |
 | Photo must be inside the catchment | `geo.models.Basin.contains` (server), `publish/form.ts` (early feedback) |
-| Attach to the nearest active station within 400 m; contributor may pick another | `readings/attachment.py`, `publish/form.ts` |
+| A photo with GPS joins the nearest active station within 400 m; one without GPS is placed by hand (station, spring or watercourse) | `readings/attachment.py`, `readings/api.py`, `publish/form.ts` |
 | Group photos whose spread is under 50 m | `frontend/src/domain/grouping.ts` |
 | A station's state is its latest reading from the last two months | `frontend/src/domain/stationState.ts` |
 | River plan layout from watercourses and station order | `frontend/src/domain/riverPlan.ts` |

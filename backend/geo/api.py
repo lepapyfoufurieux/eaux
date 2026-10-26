@@ -8,7 +8,7 @@ from ninja import Router
 from .models import Basin, Spring, Watercourse
 
 router = Router(tags=["geo"])
-CACHE_HEADER = "public, max-age=86400"
+CACHE_HEADER = "public, max-age=300"
 
 
 def feature_collection(features):

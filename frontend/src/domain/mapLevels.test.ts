@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Reading, Station } from "../types";
-import { headPieces, readingPieces, springLevels, stretchFinder, watercourseLevels } from "./mapLevels";
+import { headPieces, readingPieces, springLevels, stretchFinder, watercoursePieces, watercourseLevels } from "./mapLevels";
 
 const reading = (date: string, station: string | null, lat = 42.87): Reading => ({
   id: date,
@@ -91,5 +91,18 @@ describe("stretchFinder", () => {
     const ids = (id: number, piece: number) => stretch(id, piece).map((s) => `${s.id}:${s.piece}`).sort();
     expect(ids(1, 0)).toEqual(["1:0", "3:0"]);
     expect(ids(1, 1)).toEqual(["1:1"]);
+  });
+});
+
+describe("watercoursePieces", () => {
+  it("turns each line into LatLng and keeps a watercourse without a line, with no pieces", () => {
+    const pieces = watercoursePieces([
+      { geometry: { coordinates: [[[1.5, 42.87], [1.51, 42.88]]] }, properties: { id: 1 } },
+      { geometry: null, properties: { id: 2 } },
+    ]);
+    expect(pieces).toEqual([
+      { id: 1, pieces: [[{ lat: 42.87, lng: 1.5 }, { lat: 42.88, lng: 1.51 }]] },
+      { id: 2, pieces: [] },
+    ]);
   });
 });

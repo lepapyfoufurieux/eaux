@@ -9,6 +9,7 @@ import { readMetadata } from "./exif";
 
 const NAME_KEY = "eds-name";
 const EDIT_KEYS = "eds-edit-keys";
+// Same value as STATION_ATTACH_RADIUS_M in backend/eds/settings.py.
 const ATTACH_RADIUS_M = 400;
 
 let basinRings: [number, number][][] | null = null;

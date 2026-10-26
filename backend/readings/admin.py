@@ -9,7 +9,6 @@ class StationAdmin(admin.GISModelAdmin):
     list_display = ["code", "name", "watercourse", "order", "active"]
     list_filter = ["active", "watercourse"]
     search_fields = ["code", "name"]
-    raw_id_fields = ["reference_reading"]
 
 
 @admin.register(Reading)

@@ -54,6 +54,7 @@ createuser -s eaux && createdb -O eaux eaux   # password "eaux", or set POSTGRES
 cd backend
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
+export DJANGO_DEBUG=true             # development only: the built-in secret key is refused otherwise
 python manage.py migrate
 python manage.py seed_demo          # real geodata from data/, fictitious readings
 python manage.py createsuperuser    # for /admin
@@ -72,7 +73,8 @@ Tests: `pytest` in `backend/`, `npm test` in `frontend/`.
 On a small VPS with Docker:
 
 ```sh
-cp .env.example .env    # set SITE_ADDRESS, secrets and passwords
+cp .env.example .env    # set SITE_ADDRESS, secrets and passwords: Django refuses to start with DJANGO_SECRET_KEY=change-me
+                        # and add the association's IP to ADMIN_ALLOWED_IPS, or /admin answers 403 from the internet
 docker compose up -d --build
 docker compose exec backend python manage.py createsuperuser
 docker compose exec backend python /data/download_tiles.py   # map tiles, once (85 MB); later runs skip them

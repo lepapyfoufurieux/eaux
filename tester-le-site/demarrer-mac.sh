@@ -14,6 +14,10 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 [ -f .env ] || cp .env.example .env
+# Django refuses the placeholder key: give this computer its own (also fixes a .env made before this rule).
+if grep -q '^DJANGO_SECRET_KEY=change-me$' .env; then
+  sed -i.bak "s/^DJANGO_SECRET_KEY=change-me$/DJANGO_SECRET_KEY=$(openssl rand -hex 32)/" .env && rm -f .env.bak
+fi
 
 echo " Préparation du site. La première fois, cela peut prendre 5 à 15 minutes."
 echo " Beaucoup de texte va défiler : c'est normal, laissez faire."

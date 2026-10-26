@@ -11,7 +11,8 @@ DUMP_DIR=/var/backups/eaux
 mkdir -p "$DUMP_DIR"
 docker compose exec -T db pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB" > "$DUMP_DIR/eaux.dump"
 
-MEDIA_DIR=$(docker volume inspect --format '{{ .Mountpoint }}' "$(basename "$PWD")_media")
+# Ask Docker where the backend's photos are: the volume name depends on the compose project name.
+MEDIA_DIR=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/media"}}{{.Source}}{{end}}{{end}}' "$(docker compose ps -q backend)")
 
 restic backup "$DUMP_DIR" "$MEDIA_DIR" --tag eaux
 restic forget --keep-daily 30 --keep-monthly 12 --prune

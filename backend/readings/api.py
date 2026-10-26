@@ -2,7 +2,6 @@ from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from django.conf import settings
-from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -87,7 +86,7 @@ class ReadingIn(Schema):
     flow_level: FlowLevel
     author_name: str
     comment: str = ""
-    # Set when the contributor picks another station than the nearest one.
+    # Required without a position. With one it is ignored: a GPS photo always joins its nearest station.
     station: str | None = None
 
 
@@ -140,13 +139,10 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
     if len(data.comment) > MAX_COMMENT_CHARS:
         raise HttpError(422, f"Le commentaire dépasse {MAX_COMMENT_CHARS} caractères.")
 
-    if data.station:
+    if point is None:
         station = get_object_or_404(Station, code=data.station, active=True)
-        if point is None:
-            # No position: the photo stands at its station; no distance tells moderators it was placed by hand.
-            point, distance = station.location, None
-        else:
-            distance = Station.objects.annotate(d=Distance("location", point)).get(pk=station.pk).d.m
+        # No position: the photo stands at its station; no distance tells moderators it was placed by hand.
+        point, distance = station.location, None
     else:
         station, distance = nearest_station(point)
 
