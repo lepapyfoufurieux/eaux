@@ -70,7 +70,8 @@ export async function mountMap(): Promise<L.Map> {
   springs = springPoints;
   riverPieces = rivers.features.map((f) => ({
     id: f.properties.id,
-    pieces: f.geometry.coordinates.map((line: number[][]) => line.map(([lng, lat]) => ({ lat, lng }))),
+    // A watercourse created by hand may have no line yet (geometry null).
+    pieces: (f.geometry?.coordinates ?? []).map((line: number[][]) => line.map(([lng, lat]) => ({ lat, lng }))),
   }));
   stretchOf = stretchFinder(riverPieces);
   heads = headPieces(

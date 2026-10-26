@@ -1,7 +1,6 @@
 import { fetchBasin, fetchSprings, fetchWatercourseLines, publishReading } from "../api";
 import { FLOW, FLOW_LEVELS, type FlowLevel } from "../domain/flow";
 import { distanceM, insideRing } from "../domain/geo";
-import { SPRING_RADIUS_M } from "../domain/mapLevels";
 import { $, esc, formatDate, storage } from "../html";
 import { addReading, state, update } from "../state";
 import type { LatLng } from "../types";
@@ -108,8 +107,8 @@ function open(): void {
     try {
       const result = await publishReading({
         ...pending,
-        // A place picked by hand replaces the GPS: a station stands for itself, a spring or a bare watercourse lends its position.
-        position: placePicked() ? chosenSpring() ?? (station ? null : chosenWatercourse()) : pending.position,
+        // Without GPS, a station stands for itself; a spring or a watercourse with no station lends its position.
+        position: pending.position ?? chosenSpring() ?? (station ? null : chosenWatercourse()),
         flowLevel: flow,
         authorName: name,
         comment: $<HTMLTextAreaElement>("#f-comment").value,
@@ -129,49 +128,34 @@ function open(): void {
 const byCode = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
 const at = (lng: number, lat: number) => `${lat},${lng}`;
 
-/**
- * Where the photo was taken. With GPS the photo's position is used, and a button opens the place chooser for a
- * contributor who would rather say it by hand. Without GPS the chooser is shown straight away.
- */
+/** Where the photo was taken: its GPS position when it has one; otherwise the contributor picks the place. */
 async function renderPlaceChoice(position: LatLng | null): Promise<void> {
   const box = $("#f-station");
   if (!position) {
     box.innerHTML = `<small>La photo ne contient pas sa position : indiquez où elle a été prise.</small><div id="f-place"></div>`;
-    return renderPlacePicker(null);
+    return renderPlacePicker();
   }
   const nearest = nearestStation(position);
   box.innerHTML = `<small>Position GPS de la photo utilisée. ${
     nearest ? `${esc(nearest.station.name)} est à ${Math.round(nearest.distance)} m.` : "Aucune station à moins de 400 m : la photo apparaîtra sur la carte seulement."
-  }</small>
-    <button type="button" class="btn" id="f-pick-place" aria-expanded="false">Choisir la position</button>
-    <div id="f-place"></div>`;
-  const button = $<HTMLButtonElement>("#f-pick-place");
-  button.addEventListener("click", async () => {
-    const open = button.getAttribute("aria-expanded") !== "true";
-    button.setAttribute("aria-expanded", String(open));
-    button.textContent = open ? "Utiliser la position GPS" : "Choisir la position";
-    $("#f-place").innerHTML = "";
-    if (open) await renderPlacePicker(position);
-  });
+  }</small>`;
 }
 
-const placePicked = () => document.querySelector("#f-on-watercourse") !== null;
-
 /**
- * On a watercourse (then a station on it) or at a spring, unnamed ones included; required once shown.
- * `near` (the GPS position, if any) pre-selects the nearest station, or else the spring within 50 m.
+ * On a watercourse (then a station on it) or at a spring, unnamed ones included; all required.
  * A spring, or a watercourse with no station, lends its own position to the photo (data-at).
  */
-async function renderPlacePicker(near: LatLng | null): Promise<void> {  const [lines, springs] = await Promise.all([fetchWatercourseLines(), fetchSprings()]);
+async function renderPlacePicker(): Promise<void> {
+const [lines, springs] = await Promise.all([fetchWatercourseLines(), fetchSprings()]);
   // Watercourses have no number: those with stations follow their first station's, the others come after by name.
   const firstCode = (id: number) => state.stations.filter((s) => s.watercourseId === id).map((s) => s.code).sort(byCode)[0];
   const watercourses = lines.features
     .map(({ properties: p, geometry }) => {
       // shortcut: the middle vertex of the longest piece stands for the watercourse; fine for a map pin.
-      const piece = [...geometry.coordinates].sort((a: number[][], b: number[][]) => b.length - a.length)[0];
-      const [lng, lat] = piece[Math.floor(piece.length / 2)];
+      // A watercourse with no line yet (geometry null) has no position to lend: only its stations can place the photo.
+      const piece = geometry && [...geometry.coordinates].sort((a: number[][], b: number[][]) => b.length - a.length)[0];
       const label = p.name.startsWith("Cours d'eau sans nom") ? `${p.name} (${p.topage_code || `n° ${p.id}`})` : p.name;
-      return { id: p.id as number, label, first: firstCode(p.id), at: at(lng, lat) };
+      return { id: p.id as number, label, first: firstCode(p.id), at: piece ? at(...(piece[Math.floor(piece.length / 2)] as [number, number])) : "" };
     })
     .sort((a, b) => (a.first && b.first ? byCode(a.first, b.first) : a.first ? -1 : b.first ? 1 : byCode(a.label, b.label)));
   // Named springs first, then the others from the highest down.
@@ -184,8 +168,6 @@ async function renderPlacePicker(near: LatLng | null): Promise<void> {  const [l
     }))
     .sort((a, b) => Number(b.named) - Number(a.named) || (a.named ? byCode(a.label, b.label) : b.altitude - a.altitude));
 
-  const nearest = near && nearestStation(near);
-  const spring = near && !nearest ? springs.features.find((f) => distanceM(near, { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] }) <= SPRING_RADIUS_M) : undefined;
   const box = $("#f-place");
   box.innerHTML = `
     <div class="modes" role="group" aria-label="Lieu de la photo">
@@ -228,15 +210,6 @@ async function renderPlacePicker(near: LatLng | null): Promise<void> {  const [l
       if (spring) stationSelect.disabled = true;
       else showStations();
     });
-  }
-
-  if (nearest?.station.watercourseId != null) {
-    watercourseSelect.value = String(nearest.station.watercourseId);
-    showStations();
-    stationSelect.value = nearest.station.code;
-  } else if (spring) {
-    box.querySelector<HTMLButtonElement>('[data-place="spring"]')!.click();
-    springSelect.value = at(spring.geometry.coordinates[0], spring.geometry.coordinates[1]);
   }
 }
 
