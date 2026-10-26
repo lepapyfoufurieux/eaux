@@ -52,6 +52,7 @@ export async function mountMap(): Promise<L.Map> {
   fitMinZoom();
   map.on("resize", fitMinZoom);
   L.control.zoom({ position: "topright", zoomInTitle: "Zoomer", zoomOutTitle: "Dézoomer" }).addTo(map);
+  L.control.scale({ position: "topright", imperial: false }).addTo(map);
   L.tileLayer(LOCAL_TILES, { bounds: AREA, maxNativeZoom: MAX_LOCAL_ZOOM, maxZoom: 18, attribution: "© IGN Plan IGN · relevés des habitants" })
     // A tile missing locally comes from the Géoplateforme. It sometimes answers with a passing 404 that the browser
     // caches, and Leaflet never retries, so each retry asks for a slightly different URL (the server ignores the parameter).
