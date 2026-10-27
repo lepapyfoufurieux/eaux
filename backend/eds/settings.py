@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.gis",
+    "accounts",
     "geo",
     "readings",
 ]
@@ -98,6 +99,28 @@ if not DEBUG:
 
 # The upload limit counts in this cache: a file cache is shared by the gunicorn workers, a memory one is not.
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": "/tmp/eds-cache"}}
+
+# Contributors sign in with a link sent by e-mail (accounts/api.py); the session then lasts a year.
+SESSION_COOKIE_AGE = 365 * 24 * 3600
+LOGIN_LINK_MAX_AGE = 30 * 60
+# The association's domain mailbox. Without EMAIL_HOST (development, testers) the e-mails are printed in the backend log.
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Eaux de Saurat <ne-pas-repondre@localhost>")
+if os.environ.get("EMAIL_HOST"):
+    _port = int(os.environ.get("EMAIL_PORT", "587"))
+    MAILERS = {
+        "default": {
+            "OPTIONS": {
+                "host": os.environ["EMAIL_HOST"],
+                "port": _port,
+                "username": os.environ.get("EMAIL_HOST_USER", ""),
+                "password": os.environ.get("EMAIL_HOST_PASSWORD", ""),
+                "use_tls": _port == 587,
+                "use_ssl": _port == 465,
+            }
+        }
+    }
+else:
+    MAILERS = {"default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
 
 # Caddy sits in front of Django: trust one X-Forwarded-For hop when throttling by IP.
 NINJA_NUM_PROXIES = 1

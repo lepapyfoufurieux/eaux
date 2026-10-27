@@ -60,7 +60,6 @@ export interface NewReading {
   position: LatLng | null;
   takenAt: Date;
   flowLevel: FlowLevel;
-  authorName: string;
   comment: string;
   station?: string;
 }
@@ -68,8 +67,43 @@ export interface NewReading {
 export interface Published {
   reading: Reading;
   stationDistanceM: number | null;
-  editKey: string;
 }
+
+/** The signed-in account. */
+export interface Me {
+  /** Shown under the photos; empty until the contributor gives it. */
+  name: string;
+}
+
+/** Django's CSRF token, set by GET /api/me; every write sends it back. */
+const csrfToken = () => document.cookie.match(/(?:^|; )csrftoken=([^;]+)/)?.[1] ?? "";
+
+async function write(url: string, method: string, body?: FormData | object): Promise<any> {
+  const json = body !== undefined && !(body instanceof FormData);
+  const response = await fetch(url, {
+    method,
+    headers: { "X-CSRFToken": csrfToken(), ...(json ? { "Content-Type": "application/json" } : {}) },
+    body: json ? JSON.stringify(body) : (body as FormData | undefined),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) throw new Error("Vous n'êtes plus connecté : fermez cette fenêtre et reconnectez-vous.");
+  if (response.status === 429) throw new Error("Trop de demandes : réessayez dans une heure.");
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "La demande a échoué. Réessayez plus tard.");
+  return data;
+}
+
+/** The signed-in account, or null. Also sets the CSRF cookie. */
+export async function fetchMe(): Promise<Me | null> {
+  const response = await fetch("/api/me");
+  if (response.status === 401) return null;
+  if (!response.ok) throw new Error(`/api/me: ${response.status}`);
+  return response.json();
+}
+
+export const requestSignInLink = (email: string): Promise<void> => write("/api/auth/link", "POST", { email });
+export const signOut = (): Promise<void> => write("/api/auth/logout", "POST");
+/** Also renames the account's readings already published. */
+export const saveName = (name: string): Promise<Me> => write("/api/me", "PATCH", { name });
 
 export async function publishReading(input: NewReading): Promise<Published> {
   const form = new FormData();
@@ -80,18 +114,11 @@ export async function publishReading(input: NewReading): Promise<Published> {
   }
   form.append("taken_at", input.takenAt.toISOString());
   form.append("flow_level", input.flowLevel);
-  form.append("author_name", input.authorName);
   form.append("comment", input.comment);
   if (input.station) form.append("station", input.station);
 
-  const response = await fetch("/api/readings", { method: "POST", body: form });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail ?? "La publication a échoué. Réessayez plus tard.");
-  return {
-    reading: toReading(body.reading),
-    stationDistanceM: body.station_distance_m,
-    editKey: body.edit_key,
-  };
+  const body = await write("/api/readings", "POST", form);
+  return { reading: toReading(body.reading), stationDistanceM: body.station_distance_m };
 }
 
 export function exportUrl(from?: string, to?: string): string {

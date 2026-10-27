@@ -162,12 +162,15 @@ dialog label.row { flex-direction: row; align-items: center; }
 #f-station, #f-place, #f-on-watercourse { display: grid; gap: 12px; }
 #f-station:empty, #f-place:empty { display: none; }
 #f-station .modes { justify-self: start; }
-dialog input[type="text"], dialog textarea, dialog select, dialog input[type="date"] { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: inherit; }
+dialog input[type="text"], dialog input[type="email"], dialog textarea, dialog select, dialog input[type="date"] { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: inherit; }
 .flows { display: grid; gap: 6px; border: 0; padding: 0; }
 .flows label { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-left: 6px solid var(--c); border-radius: 6px; }
 .flows small { flex-basis: 100%; color: var(--ink-soft); }
 .buttons { display: flex; justify-content: flex-end; gap: 8px; }
 .msg.error { padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--flow-dry) 12%, transparent); }
+.msg.ok { padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--flow-normal) 12%, transparent); }
+dialog p, dialog .hint { margin: 0; color: var(--ink-soft); }
+.link { font: inherit; padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; }
 .msg.fatal { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 1000; }
 
 /* Phones: a tighter bar so the title, the two views and the menu still fit on one line. */

@@ -9,7 +9,8 @@ from django.utils import timezone
 from ninja import File, Form, Router, Schema, Status
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
-from ninja.throttling import AnonRateThrottle
+from ninja.security import django_auth
+from ninja.throttling import UserRateThrottle
 from pydantic import AwareDatetime
 
 from geo.models import Basin
@@ -84,7 +85,6 @@ class ReadingIn(Schema):
     lng: float | None = None
     taken_at: AwareDatetime
     flow_level: FlowLevel
-    author_name: str
     comment: str = ""
     # Required without a position. With one it is ignored: a GPS photo always joins its nearest station.
     station: str | None = None
@@ -93,8 +93,6 @@ class ReadingIn(Schema):
 class PublishedOut(Schema):
     reading: ReadingOut
     station_distance_m: float | None
-    # Shown once; the browser keeps it to edit or delete the reading later.
-    edit_key: str
 
 
 @router.get("/stations", response=list[StationOut])
@@ -116,7 +114,9 @@ def export_readings(request, date_from: date | None = None, date_to: date | None
 @router.post(
     "/readings",
     response={201: PublishedOut},
-    throttle=[AnonRateThrottle("30/h")],
+    # Only signed-in accounts publish; a suspended account counts as signed out.
+    auth=django_auth,
+    throttle=[UserRateThrottle("30/h")],
 )
 def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
     if data.lat is None or data.lng is None:
@@ -129,7 +129,7 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
             raise HttpError(422, "Cette photo a été prise hors du bassin versant de Saurat.")
     if photo.size > settings.MAX_PHOTO_BYTES:
         raise HttpError(413, "La photo est trop lourde.")
-    author = data.author_name.strip()
+    author = request.user.first_name.strip()
     if not author:
         raise HttpError(422, "Indiquez votre nom ou prénom.")
     # A wrong camera clock would stretch both views to an empty future month for everyone.
@@ -152,6 +152,7 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
         flow_level=data.flow_level,
         comment=data.comment.strip(),
         author_name=author[:60],
+        owner=request.user,
         station=station,
         station_distance_m=distance,
     )
@@ -159,9 +160,8 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
         full, thumb = process_photo(photo, str(reading.id))
     except ValueError:
         raise HttpError(422, "Ce format d'image n'est pas pris en charge.")
-    key = reading.issue_edit_key()
     with transaction.atomic():
         reading.photo.save(full.name, full, save=False)
         reading.thumbnail.save(thumb.name, thumb, save=False)
         reading.save()
-    return Status(201, {"reading": reading, "station_distance_m": distance, "edit_key": key})
+    return Status(201, {"reading": reading, "station_distance_m": distance})

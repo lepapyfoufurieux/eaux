@@ -20,7 +20,9 @@ class ReadingAdmin(admin.GISModelAdmin):
 
     list_display = ["preview", "taken_at", "flow_level", "station", "station_distance_m", "author_name", "status"]
     list_filter = ["status", "flow_level", "station"]
-    search_fields = ["author_name", "comment"]
+    search_fields = ["author_name", "comment", "owner__email"]
+    # Lets an admin give a reading published before accounts back to its author's new account.
+    raw_id_fields = ["owner"]
     date_hierarchy = "taken_at"
     readonly_fields = ["preview", "created_at"]
     actions = ["hide", "publish"]

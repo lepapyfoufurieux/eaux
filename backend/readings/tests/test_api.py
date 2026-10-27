@@ -11,13 +11,17 @@ from readings.models import Reading
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def signed_in(client, contributor):
+    client.force_login(contributor)
+
+
 def publish(client, photo, **fields):
     data = {
         "lat": 42.8791,
         "lng": 1.4893,
         "taken_at": "2026-10-12T15:45:00+02:00",
         "flow_level": "normal",
-        "author_name": "Marion",
         "comment": "Retour à la normale.",
         "photo": photo,
     }
@@ -30,16 +34,15 @@ def export(client):
     return list(csv.reader(io.StringIO(exported)))
 
 
-def test_publish_attaches_station_and_strips_metadata(client, basin, stations, photo_file):
+def test_publish_attaches_station_and_strips_metadata(client, basin, stations, photo_file, contributor):
     response = publish(client, photo_file())
     assert response.status_code == 201, response.content
     body = response.json()
     assert body["reading"]["station"] == "S02"
     assert body["station_distance_m"] < 50
-    assert len(body["edit_key"]) > 20
 
     reading = Reading.objects.get()
-    assert reading.check_edit_key(body["edit_key"])
+    assert (reading.owner, reading.author_name) == (contributor, "Marion")
     with Image.open(reading.photo.path) as image:
         assert max(image.size) == 1600
         assert not image.getexif()
@@ -52,7 +55,7 @@ def test_gps_photo_joins_its_nearest_station_whatever_is_sent(client, basin, sta
 
 
 def without_position(photo, **fields):
-    return {"taken_at": "2026-10-12T15:45:00+02:00", "flow_level": "normal", "author_name": "Marion", "photo": photo, **fields}
+    return {"taken_at": "2026-10-12T15:45:00+02:00", "flow_level": "normal", "photo": photo, **fields}
 
 
 def test_photo_without_position_goes_to_the_chosen_station(client, basin, stations, photo_file):
@@ -68,6 +71,23 @@ def test_photo_without_position_needs_a_station(client, basin, stations, photo_f
     response = client.post("/api/readings", without_position(photo_file()))
     assert response.status_code == 422
     assert Reading.objects.count() == 0
+
+
+def test_only_active_accounts_publish(client, basin, stations, photo_file, contributor):
+    client.logout()
+    assert publish(client, photo_file()).status_code == 401
+
+    client.force_login(contributor)
+    contributor.is_active = False
+    contributor.save()
+    assert publish(client, photo_file()).status_code == 401
+    assert Reading.objects.count() == 0
+
+
+def test_account_without_a_name_cannot_publish(client, basin, stations, photo_file, contributor):
+    contributor.first_name = ""
+    contributor.save()
+    assert publish(client, photo_file()).status_code == 422
 
 
 def test_photo_outside_basin_is_refused(client, basin, stations, photo_file):
@@ -89,8 +109,10 @@ def test_hidden_readings_are_not_listed_or_exported(client, basin, stations, pho
     assert len(rows) == 2 and rows[1][1] == "normal"
 
 
-def test_csv_export_keeps_formulas_inert(client, basin, stations, photo_file):
-    publish(client, photo_file(), author_name='=HYPERLINK("http://evil.example")', comment="+33 6 00")
+def test_csv_export_keeps_formulas_inert(client, basin, stations, photo_file, contributor):
+    contributor.first_name = '=HYPERLINK("http://evil.example")'
+    contributor.save()
+    publish(client, photo_file(), comment="+33 6 00")
     row = export(client)[1]
     assert row[6] == '\'=HYPERLINK("http://evil.example")'
     assert row[2] == "'+33 6 00"
