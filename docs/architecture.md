@@ -41,8 +41,18 @@ Flow levels are stable codes: `dry`, `very_low`, `normal`, `high` (labels: Assec
 
 Everything in `frontend/src/domain/` is free of DOM and Leaflet code, so it can be unit-tested and reused by both views.
 
+## Accounts (planned)
+
+Only signed-in contributors will publish; reading stays public. Design document (in French): [Eaux de Saurat — architecture avec comptes](https://claude.ai/artifact/2Psru2HULaQ3KUcCp7ubp6).
+
+- **Sign-in by e-mail link, no password.** `POST /api/auth/link` mails a signed, single-use link valid 30 minutes; the first sign-in creates the account. Sessions last a year per device. Mail goes out through the association's domain mailbox (SMTP settings in `.env`).
+- **No new table.** Django's `User` holds the account (`email`, `first_name` = display name, `is_active`). `Reading` gains `owner` and loses `edit_key_hash`; `author_name` stays and is rewritten on all of an account's readings when its name changes.
+- **Moderation after the fact, in the Django admin.** New accounts publish at once; admins can suspend an account (which ends its sessions), hide all its readings in one action, reactivate it or delete it with its readings and photo files.
+- **API.** `/api/auth/link`, `/api/auth/login`, `/api/auth/logout`, `GET/PATCH/DELETE /api/me`; `POST /api/readings` requires a session (Django Ninja `django_auth`, CSRF header) and is limited to 30 per hour per account.
+
 ## Not built yet
 
-- Edit and delete endpoints using the edit key.
+- Accounts (above).
+- Edit and delete endpoints for a reading's owner.
 - Station identity card, framing overlay, station time-lapse, station sponsors, Météo-France rain band (ideas kept from the brainstorm).
 - Offline mode for the field.
