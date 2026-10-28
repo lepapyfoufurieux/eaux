@@ -42,6 +42,7 @@ Flow levels are stable codes: `dry`, `very_low`, `normal`, `high` (labels: Assec
 | River plan layout from watercourses and station order | `frontend/src/domain/riverPlan.ts` |
 | Only an active, signed-in account publishes; sign-in links and codes are single-use and valid 30 minutes; a code dies after 5 wrong tries | `accounts/api.py`, `readings/api.py` (`auth=django_auth`), `publish/form.ts` |
 | Only a signed-in account reports a photo, once; the count shows in the admin | `readings/api.py` (`report_reading`), `readings/admin.py`, `views/map/report.ts` |
+| Moderators reach contributors only, never staff accounts or rights | `accounts/apps.py` (`MODERATOR_PERMISSIONS`), `accounts/admin.py` |
 | Suspend an account and hide its readings; renaming an account renames its readings | `accounts/admin.py`, `accounts.api.set_name` |
 
 Everything in `frontend/src/domain/` is free of DOM and Leaflet code, so it can be unit-tested and reused by both views.
@@ -53,6 +54,7 @@ Only signed-in contributors publish; reading stays public. Design document (in F
 - **Sign-in by e-mail, no password.** `POST /api/auth/link` mails a 6-digit code and a signed link, both single-use and valid 30 minutes; the first sign-in creates the account. The code is typed in the publish form (`POST /api/auth/code`), because a phone's mail app opens the link in another browser than the site's. Only the latest code counts, kept in the cache. Sessions last a year per device. Mail goes out through the association's domain mailbox (SMTP settings in `.env`).
 - **No new table.** Django's `User` holds the account (`email`, `first_name` = display name, `is_active`). `Reading` gains `owner` and loses `edit_key_hash`; `author_name` stays and is rewritten on all of an account's readings when its name changes.
 - **Moderation after the fact, in the Django admin.** New accounts publish at once; admins can suspend an account (which ends its sessions), hide all its readings in one action, reactivate it or delete it with its readings and photo files.
+- **Moderators.** The "Modérateurs" group (created and kept up to date at each `migrate`, `accounts/apps.py`) hides and republishes readings, clears reports, and suspends or reactivates contributor accounts, and adds, edits or deletes stations, watercourses and springs. It cannot touch the catchment outline, staff accounts, rights or passwords. To make someone a moderator, an admin ticks "Statut équipe" on their account and adds it to the group.
 - **API.** `/api/auth/link`, `/api/auth/code`, `/api/auth/login`, `/api/auth/logout`, `GET/PATCH/DELETE /api/me`, `GET /api/me/readings` (the "Mon compte" page, hidden readings included), `POST /api/readings/{id}/report` ("Signaler cette photo" in the map popups, 10 per hour per account), `DELETE /api/me/readings/{id}` (a contributor deletes a reading; editing stays with the admins, so a contributor cannot rewrite a reading after the fact); `POST /api/readings` requires a session (Django Ninja `django_auth`, CSRF header) and is limited to 10 per hour per account.
 
 ## Not built yet

@@ -118,7 +118,9 @@ def test_suspending_from_the_admin_hides_the_readings_and_ends_the_session(clien
     client.force_login(contributor)
 
     account_admin = admin.site._registry[User]
-    account_admin.suspend_and_hide(rf.post("/"), account_admin.get_queryset(rf.get("/")).filter(pk=contributor.pk))
+    request = rf.post("/")
+    request.user = User.objects.create_superuser(username="admin", email="admin@example.org", password="x")
+    account_admin.suspend_and_hide(request, account_admin.get_queryset(rf.get("/")).filter(pk=contributor.pk))
     mine.refresh_from_db()
     assert mine.status == Reading.Status.HIDDEN
     assert client.get("/api/me").status_code == 401
@@ -196,3 +198,40 @@ def test_a_contributor_deletes_only_their_own_readings(client, contributor):
     assert client.delete(f"/api/me/readings/{other.id}").status_code == 404
     assert client.delete(f"/api/me/readings/{mine.id}").status_code == 204
     assert list(Reading.objects.all()) == [other]
+
+
+@pytest.fixture
+def moderator(db):
+    from django.contrib.auth.models import Group
+
+    user = User.objects.create_user(username="modo@example.org", email="modo@example.org", is_staff=True)
+    user.groups.add(Group.objects.get(name="Modérateurs"))
+    return user
+
+
+def test_moderators_moderate_and_keep_the_map_data_but_not_staff_accounts(client, moderator, contributor):
+    mine = reading(contributor, photo="photos/a.jpg", thumbnail="thumbs/a.jpg")
+    boss = User.objects.create_superuser(username="admin", email="admin@example.org", password="x")
+    client.force_login(moderator)
+
+    assert client.get("/admin/readings/reading/").status_code == 200
+    for page in ["readings/station", "geo/watercourse", "geo/spring", "readings/station/add", "geo/spring/add"]:
+        assert client.get(f"/admin/{page}/").status_code == 200, page
+    assert client.get("/admin/geo/basin/").status_code == 403
+    client.post("/admin/readings/reading/", {"action": "hide", "_selected_action": [mine.pk]})
+    mine.refresh_from_db()
+    assert mine.status == Reading.Status.HIDDEN
+
+    # The change form offers no staff or superuser box: posting one changes nothing.
+    url = f"/admin/auth/user/{contributor.pk}/change/"
+    form = {"email": contributor.email, "first_name": "Marion", "is_active": "on", "is_superuser": "on", "is_staff": "on"}
+    assert client.post(url, form).status_code == 302
+    contributor.refresh_from_db()
+    assert not (contributor.is_staff or contributor.is_superuser)
+    assert client.get(f"/admin/auth/user/{contributor.pk}/password/").status_code == 403
+
+    # Staff accounts are out of reach, even through the bulk actions.
+    assert client.post(f"/admin/auth/user/{boss.pk}/change/", {"email": boss.email, "is_active": ""}).status_code == 403
+    client.post("/admin/auth/user/", {"action": "suspend", "_selected_action": [boss.pk, contributor.pk]})
+    boss.refresh_from_db(), contributor.refresh_from_db()
+    assert (boss.is_active, contributor.is_active) == (True, False)

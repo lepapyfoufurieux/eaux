@@ -50,10 +50,10 @@ class ReadingAdmin(admin.GISModelAdmin):
     def preview(self, obj):
         return format_html('<img src="{}" style="height:48px;border-radius:4px">', obj.thumbnail.url) if obj.thumbnail else ""
 
-    @admin.action(description="Masquer les relevés sélectionnés")
+    @admin.action(description="Masquer les relevés sélectionnés", permissions=["change"])
     def hide(self, request, queryset):
         queryset.update(status=Reading.Status.HIDDEN)
 
-    @admin.action(description="Republier les relevés sélectionnés")
+    @admin.action(description="Republier les relevés sélectionnés", permissions=["change"])
     def publish(self, request, queryset):
         queryset.update(status=Reading.Status.PUBLISHED)
