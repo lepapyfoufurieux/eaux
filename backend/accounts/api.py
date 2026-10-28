@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
 from django.core.validators import validate_email
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.middleware.csrf import get_token
 from ninja import Router, Schema, Status
@@ -50,7 +51,8 @@ class MeOut(Schema):
 
 
 def find_user(email):
-    return User.objects.filter(email__iexact=email).first()
+    # An account added by hand in the admin may hold the address as its username only.
+    return User.objects.filter(Q(email__iexact=email) | Q(username__iexact=email)).first()
 
 
 def last_login(user):

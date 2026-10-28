@@ -121,3 +121,10 @@ def test_sign_in_link_command_prints_a_working_link(client):
     call_command("sign_in_link", "Testeuse@Example.org", stdout=out)
     assert client.get(out.getvalue().strip()).url == "/?connexion=ok"
     assert User.objects.get().email == "testeuse@example.org"
+
+
+def test_account_added_in_the_admin_without_email_signs_in(client):
+    added = User.objects.create_user(username="marion@example.org")
+    ask_link(client)
+    assert client.get(mailed_link()).url == "/?connexion=ok"
+    assert list(User.objects.all()) == [added]
