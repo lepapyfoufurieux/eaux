@@ -10,7 +10,7 @@ from django.utils.html import format_html
 from readings.models import Reading
 
 from .api import set_name
-from .models import ModerationLog
+from .models import BlockedDomain, ModerationLog
 
 User = get_user_model()
 admin.site.unregister(User)
@@ -114,3 +114,9 @@ class ModerationLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(BlockedDomain)
+class BlockedDomainAdmin(admin.ModelAdmin):
+    list_display = ["domain", "created_at"]
+    search_fields = ["domain"]

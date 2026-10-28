@@ -240,3 +240,14 @@ def test_moderators_moderate_and_keep_the_map_data_but_not_staff_accounts(client
     log = client.get("/admin/accounts/moderationlog/")
     assert log.status_code == 200 and "Suspendu." in log.text and "Motif : Photo floue ou trop sombre" in log.text
     assert client.post("/admin/accounts/moderationlog/1/delete/").status_code == 403
+
+
+def test_throwaway_addresses_are_refused(client):
+    from accounts.models import BlockedDomain
+
+    assert ask_link(client, "spam@yopmail.com").status_code == 422
+    assert ask_link(client, "spam@x.Mailinator.com").status_code == 422
+    BlockedDomain.objects.create(domain=" @Spam.example ")
+    assert ask_link(client, "a@spam.example").status_code == 422
+    assert ask_link(client, "a@notspam.example").status_code == 204
+    assert len(mail.outbox) == 1

@@ -15,6 +15,7 @@ MODERATOR_PERMISSIONS = [
     ("auth", "view_user"),
     ("auth", "change_user"),
     ("accounts", "view_moderationlog"),
+    *[("accounts", f"{action}_blockeddomain") for action in ["view", "add", "change", "delete"]],
 ]
 
 

@@ -21,6 +21,8 @@ from ninja.throttling import AnonRateThrottle
 
 from readings.models import Reading
 
+from .models import BlockedDomain
+
 router = Router(tags=["accounts"])
 User = get_user_model()
 SALT = "accounts.login-link"
@@ -105,6 +107,8 @@ def send_link(request, data: LinkIn):
         raise HttpError(422, "Cette adresse e-mail n'est pas valide.")
     if len(email) > MAX_EMAIL_CHARS:
         raise HttpError(422, "Cette adresse e-mail est trop longue.")
+    if BlockedDomain.blocks(email):
+        raise HttpError(422, "Les adresses e-mail jetables ne sont pas acceptées : utilisez votre adresse habituelle.")
     # The same answer whether the account exists or not; the per-address limit keeps the site from flooding a mailbox.
     key = f"login-link:{email}"
     cache.add(key, 0, 3600)
