@@ -124,7 +124,7 @@ def delete_my_reading(request, reading_id: UUID):
     return Status(204, None)
 
 
-@router.post("/readings/{reading_id}/report", auth=django_auth, response={204: None}, throttle=[UserRateThrottle("30/h")])
+@router.post("/readings/{reading_id}/report", auth=django_auth, response={204: None}, throttle=[UserRateThrottle("10/h")])
 def report_reading(request, reading_id: UUID):
     """A signed-in visitor flags a photo; reporting it twice counts once."""
     reading = get_object_or_404(Reading, id=reading_id, status=Reading.Status.PUBLISHED)
@@ -142,7 +142,7 @@ def export_readings(request, date_from: date | None = None, date_to: date | None
     response={201: PublishedOut},
     # Only signed-in accounts publish; a suspended account counts as signed out.
     auth=django_auth,
-    throttle=[UserRateThrottle("30/h")],
+    throttle=[UserRateThrottle("10/h")],
 )
 def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
     if data.lat is None or data.lng is None:
