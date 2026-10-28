@@ -120,6 +120,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .sheet-reading img { width: 100%; border-radius: 6px; }
 .sheet-reading .where { font-weight: 700; font-size: 14px; }
 .sheet-reading .who { font-weight: 600; }
+.sheet-reading .report { display: block; margin-top: 6px; color: var(--ink-soft); font-size: 12px; }
+.sheet-reading .report:disabled { text-decoration: none; cursor: default; }
 .sheet-reading .when, .sheet-group .count { color: var(--ink-soft); font-size: 13px; }
 .sheet-group .track { display: flex; align-items: center; gap: 4px; }
 .sheet-group .nav { border: 0; background: none; font-size: 22px; cursor: pointer; color: inherit; }
@@ -162,12 +164,26 @@ dialog label.row { flex-direction: row; align-items: center; }
 #f-station, #f-place, #f-on-watercourse { display: grid; gap: 12px; }
 #f-station:empty, #f-place:empty { display: none; }
 #f-station .modes { justify-self: start; }
-dialog input[type="text"], dialog textarea, dialog select, dialog input[type="date"] { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: inherit; }
+dialog input[type="text"], dialog input[type="email"], dialog textarea, dialog select, dialog input[type="date"] { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: inherit; }
 .flows { display: grid; gap: 6px; border: 0; padding: 0; }
 .flows label { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-left: 6px solid var(--c); border-radius: 6px; }
 .flows small { flex-basis: 100%; color: var(--ink-soft); }
 .buttons { display: flex; justify-content: flex-end; gap: 8px; }
 .msg.error { padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--flow-dry) 12%, transparent); }
+.msg.ok { padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--flow-normal) 12%, transparent); }
+dialog p, dialog .hint { margin: 0; color: var(--ink-soft); }
+dialog h3 { margin: 4px 0 0; font-size: 1rem; }
+.my-readings { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 40vh; overflow-y: auto; }
+.my-readings li { display: flex; gap: 10px; align-items: center; }
+.my-readings img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; display: block; }
+.my-readings strong { border-left: 4px solid var(--c); padding-left: 6px; }
+.my-readings small { display: block; color: var(--ink-soft); }
+.my-readings li > div { flex: 1; }
+.my-readings .link { color: var(--ink-soft); font-size: 13px; }
+dialog.confirm { width: min(400px, calc(100vw - 32px)); }
+dialog.confirm p { color: var(--ink); }
+.btn.danger { background: var(--flow-dry); border-color: var(--flow-dry); color: #fff; }
+.link { font: inherit; padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; }
 .msg.fatal { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 1000; }
 
 /* Phones: a tighter bar so the title, the two views and the menu still fit on one line. */

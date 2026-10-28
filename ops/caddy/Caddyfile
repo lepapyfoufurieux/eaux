@@ -9,6 +9,8 @@
 		}
 		reverse_proxy backend:8000
 	}
+	# Without the slash, /admin would fall through to the frontend and show the map.
+	redir /admin /admin/
 	handle /admin/* {
 		# Django sets no limit on password attempts: only the addresses in ADMIN_ALLOWED_IPS reach the admin.
 		@outside not remote_ip {$ADMIN_ALLOWED_IPS:private_ranges}

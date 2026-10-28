@@ -1,7 +1,6 @@
-import hashlib
-import secrets
 import uuid
 
+from django.conf import settings
 from django.contrib.gis.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -51,14 +50,17 @@ class Reading(models.Model):
     taken_at = models.DateTimeField("prise le")
     flow_level = models.CharField("débit", max_length=10, choices=FlowLevel.choices)
     comment = models.TextField("commentaire", blank=True)
+    # Copied from the account's name, and rewritten when it changes (accounts.api.set_name).
     author_name = models.CharField("auteur", max_length=60)
+    # Empty for the readings published before accounts. Deleting an account deletes its readings.
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name="compte", null=True, blank=True, on_delete=models.CASCADE, related_name="readings"
+    )
     station = models.ForeignKey(
         Station, null=True, blank=True, on_delete=models.SET_NULL, related_name="readings"
     )
     station_distance_m = models.FloatField("distance à la station (m)", null=True, blank=True)
     status = models.CharField("statut", max_length=10, choices=Status.choices, default=Status.PUBLISHED)
-    # Lets the contributor edit or delete their reading without an account; only the hash is stored.
-    edit_key_hash = models.CharField(max_length=64, editable=False)
     created_at = models.DateTimeField("reçu le", auto_now_add=True)
 
     class Meta:
@@ -69,17 +71,18 @@ class Reading(models.Model):
     def __str__(self):
         return f"{self.get_flow_level_display()} · {self.taken_at:%d/%m/%Y} · {self.author_name}"
 
-    @staticmethod
-    def hash_key(key):
-        return hashlib.sha256(key.encode()).hexdigest()
 
-    def issue_edit_key(self):
-        key = secrets.token_urlsafe(24)
-        self.edit_key_hash = self.hash_key(key)
-        return key
+class Report(models.Model):
+    """A signed-in visitor flags a photo; admins see the count in the readings list and decide."""
 
-    def check_edit_key(self, key):
-        return secrets.compare_digest(self.edit_key_hash, self.hash_key(key))
+    reading = models.ForeignKey(Reading, verbose_name="relevé", on_delete=models.CASCADE, related_name="reports")
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="signalé par", on_delete=models.CASCADE, related_name="reports")
+    created_at = models.DateTimeField("signalé le", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "signalement"
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["reading", "reporter"], name="one_report_per_account")]
 
 
 @receiver(post_delete, sender=Reading)

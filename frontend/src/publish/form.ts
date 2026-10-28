@@ -1,14 +1,13 @@
-import { fetchBasin, fetchSprings, fetchWatercourseLines, publishReading } from "../api";
+import { openSignIn } from "../account/signIn";
+import { fetchBasin, fetchMe, fetchSprings, fetchWatercourseLines, publishReading, saveName, signOut } from "../api";
 import { FLOW, FLOW_LEVELS, type FlowLevel } from "../domain/flow";
 import { distanceM, insideRing } from "../domain/geo";
-import { $, esc, formatDate, storage } from "../html";
+import { $, esc, formatDate } from "../html";
 import { addReading, state, update } from "../state";
 import type { LatLng } from "../types";
 import { compress } from "./compress";
 import { readMetadata } from "./exif";
 
-const NAME_KEY = "eds-name";
-const EDIT_KEYS = "eds-edit-keys";
 // Same value as STATION_ATTACH_RADIUS_M in backend/eds/settings.py.
 const ATTACH_RADIUS_M = 400;
 
@@ -30,33 +29,47 @@ function nearestStation(point: LatLng) {
     .sort((a, b) => a.distance - b.distance)[0];
 }
 
-/** The "Publier des photos" dialog (cahier des charges, 2.4). */
+// The sign-in link in the e-mail comes back to the site with ?connexion= (backend/accounts/api.py).
+export const SIGN_IN_NOTICES: Record<string, string> = {
+  ok: `<div class="msg ok">Vous êtes connecté : vous pouvez publier.</div>`,
+  invalide: `<div class="msg error"><strong>Ce lien ne marche plus.</strong> Il a expiré ou a déjà servi : demandez-en un nouveau.</div>`,
+  suspendu: `<div class="msg error"><strong>Ce compte est suspendu.</strong> Contactez l'association.</div>`,
+};
+
+/** The "Publier des photos" dialog (cahier des charges, 2.4). Only a signed-in account publishes. */
 export function mountPublishForm(): void {
-  $("#btn-publish").addEventListener("click", open);
+  $("#btn-publish").addEventListener("click", () => open());
+  const signIn = new URLSearchParams(location.search).get("connexion");
+  if (signIn) {
+    history.replaceState(null, "", location.pathname + location.hash);
+    open(SIGN_IN_NOTICES[signIn] ?? "");
+  }
 }
 
-function open(): void {
+async function open(notice = ""): Promise<void> {
   const dialog = $<HTMLDialogElement>("#sheet");
-  const remembered = storage.get(NAME_KEY) ?? "";
+  const me = await fetchMe().catch(() => null);
+  if (!me) return openSignIn(dialog, "Publier une photo", "Pour publier, connectez-vous", notice, () => open(SIGN_IN_NOTICES.ok));
   dialog.innerHTML = `
     <form method="dialog" class="publish">
       <h2>Publier une photo</h2>
       <label class="drop">Choisir une photo<input type="file" accept="image/jpeg,image/*" id="f-photo" required></label>
       <div id="f-checks" class="checks" aria-live="polite"></div>
       <div id="f-station"></div>
-      <label>Votre nom ou prénom<input type="text" id="f-name" autocomplete="given-name" value="${esc(remembered)}" required></label>
-      <label class="row"><input type="checkbox" id="f-remember" ${remembered ? "checked" : ""}> Se souvenir de mon nom sur cet appareil</label>
+      <label>Nom affiché sous vos photos<input type="text" id="f-name" autocomplete="given-name" maxlength="60" value="${esc(me.name)}" required>
+        <small class="hint">Le changer renomme aussi vos photos déjà publiées.</small></label>
       <fieldset class="flows"><legend>Débit observé</legend>
         ${FLOW_LEVELS.map((k) => `<label style="--c:${FLOW[k].colour}"><input type="radio" name="flow" value="${k}" required>${FLOW[k].label}<small>${FLOW[k].hint}</small></label>`).join("")}
       </fieldset>
       <label>Commentaire (facultatif)<textarea id="f-comment" maxlength="2000" placeholder="Biodiversité, météo des derniers jours, aspect de l'eau…"></textarea></label>
-      <div id="f-message" role="status"></div>
+      <div id="f-message" role="status">${notice}</div>
+      <p>Connecté avec votre compte · <button type="button" class="link" id="f-sign-out">Se déconnecter</button></p>
       <div class="buttons">
         <button type="button" class="btn" value="cancel" id="f-cancel">Annuler</button>
         <button type="submit" class="btn primary" id="f-submit" disabled>Publier</button>
       </div>
     </form>`;
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
 
   let pending: { photo: Blob; position: LatLng | null; takenAt: Date } | null = null;
   const checks = $("#f-checks");
@@ -67,6 +80,10 @@ function open(): void {
   };
 
   $("#f-cancel").addEventListener("click", () => dialog.close());
+  $("#f-sign-out").addEventListener("click", async () => {
+    await signOut().catch(() => undefined);
+    dialog.close();
+  });
 
   $<HTMLInputElement>("#f-photo").addEventListener("change", async (event) => {
     const file = (event.target as HTMLInputElement).files?.[0];
@@ -101,21 +118,20 @@ function open(): void {
     const name = $<HTMLInputElement>("#f-name").value.trim();
     const flow = (dialog.querySelector<HTMLInputElement>('input[name="flow"]:checked')?.value ?? "") as FlowLevel;
     if (!name || !flow) return fail("Il manque des informations.", "Indiquez votre nom et le débit observé.");
-    storage.set(NAME_KEY, $<HTMLInputElement>("#f-remember").checked ? name : null);
 
     const station = dialog.querySelector<HTMLSelectElement>("#f-station-select:enabled")?.value || undefined;
     submit.disabled = true;
     try {
+      // shortcut: readings already on screen keep the old name until the page reloads; fine while renames are rare.
+      if (name !== me.name) me.name = (await saveName(name)).name;
       const result = await publishReading({
         ...pending,
         // Without GPS, a station stands for itself; a spring or a watercourse with no station lends its position.
         position: pending.position ?? chosenSpring() ?? (station ? null : chosenWatercourse()),
         flowLevel: flow,
-        authorName: name,
         comment: $<HTMLTextAreaElement>("#f-comment").value,
         station,
       });
-      rememberEditKey(result.reading.id, result.editKey);
       addReading(result.reading);
       if (result.reading.station) update({ selectedStation: result.reading.station });
       dialog.close();
@@ -221,10 +237,3 @@ const latLng = (value: string | undefined): LatLng | null => {
 };
 const chosenSpring = () => latLng(document.querySelector<HTMLSelectElement>("#f-spring:enabled")?.value);
 const chosenWatercourse = () => latLng(document.querySelector<HTMLSelectElement>("#f-watercourse:enabled")?.selectedOptions[0]?.dataset.at);
-
-/** The edit key lets this device modify or delete the reading later, without an account. */
-function rememberEditKey(id: string, key: string): void {
-  const keys = JSON.parse(storage.get(EDIT_KEYS) ?? "{}");
-  keys[id] = key;
-  storage.set(EDIT_KEYS, JSON.stringify(keys));
-}

@@ -132,7 +132,6 @@ class Command(BaseCommand):
             station=station,
             station_distance_m=distance,
         )
-        reading.issue_edit_key()
         reading.photo.save(name, fake_photo(flow, name), save=False)
         reading.thumbnail.save(name, fake_photo(flow, name), save=False)
         reading.save()

@@ -9,7 +9,8 @@ from django.utils import timezone
 from ninja import File, Form, Router, Schema, Status
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
-from ninja.throttling import AnonRateThrottle
+from ninja.security import django_auth
+from ninja.throttling import UserRateThrottle
 from pydantic import AwareDatetime
 
 from geo.models import Basin
@@ -17,7 +18,7 @@ from geo.models import Basin
 from .attachment import nearest_station
 from .export import csv_response, published_readings
 from .images import process_photo
-from .models import FlowLevel, Reading, Station
+from .models import FlowLevel, Reading, Report, Station
 
 router = Router(tags=["readings"])
 MAX_COMMENT_CHARS = 2000
@@ -78,13 +79,17 @@ class ReadingOut(Schema):
         return obj.thumbnail.url
 
 
+class MyReadingOut(ReadingOut):
+    # The contributor also sees the readings an admin hid.
+    status: str
+
+
 class ReadingIn(Schema):
     # Missing when the photo lost its position (messaging apps); a station is then required.
     lat: float | None = None
     lng: float | None = None
     taken_at: AwareDatetime
     flow_level: FlowLevel
-    author_name: str
     comment: str = ""
     # Required without a position. With one it is ignored: a GPS photo always joins its nearest station.
     station: str | None = None
@@ -93,8 +98,6 @@ class ReadingIn(Schema):
 class PublishedOut(Schema):
     reading: ReadingOut
     station_distance_m: float | None
-    # Shown once; the browser keeps it to edit or delete the reading later.
-    edit_key: str
 
 
 @router.get("/stations", response=list[StationOut])
@@ -108,6 +111,27 @@ def list_readings(request):
     return Reading.objects.filter(status=Reading.Status.PUBLISHED).select_related("station")
 
 
+@router.get("/me/readings", auth=django_auth, response=list[MyReadingOut])
+def my_readings(request):
+    """The "Mon compte" page: every reading of the signed-in account, hidden ones included."""
+    return Reading.objects.filter(owner=request.user).select_related("station")
+
+
+@router.delete("/me/readings/{reading_id}", auth=django_auth, response={204: None})
+def delete_my_reading(request, reading_id: UUID):
+    """A contributor deletes one of their readings; editing is left to the admins. The signal removes the photo files."""
+    get_object_or_404(Reading, id=reading_id, owner=request.user).delete()
+    return Status(204, None)
+
+
+@router.post("/readings/{reading_id}/report", auth=django_auth, response={204: None}, throttle=[UserRateThrottle("10/h")])
+def report_reading(request, reading_id: UUID):
+    """A signed-in visitor flags a photo; reporting it twice counts once."""
+    reading = get_object_or_404(Reading, id=reading_id, status=Reading.Status.PUBLISHED)
+    Report.objects.get_or_create(reading=reading, reporter=request.user)
+    return Status(204, None)
+
+
 @router.get("/readings.csv")
 def export_readings(request, date_from: date | None = None, date_to: date | None = None):
     return csv_response(published_readings(date_from, date_to))
@@ -116,7 +140,9 @@ def export_readings(request, date_from: date | None = None, date_to: date | None
 @router.post(
     "/readings",
     response={201: PublishedOut},
-    throttle=[AnonRateThrottle("30/h")],
+    # Only signed-in accounts publish; a suspended account counts as signed out.
+    auth=django_auth,
+    throttle=[UserRateThrottle("10/h")],
 )
 def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
     if data.lat is None or data.lng is None:
@@ -129,7 +155,7 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
             raise HttpError(422, "Cette photo a été prise hors du bassin versant de Saurat.")
     if photo.size > settings.MAX_PHOTO_BYTES:
         raise HttpError(413, "La photo est trop lourde.")
-    author = data.author_name.strip()
+    author = request.user.first_name.strip()
     if not author:
         raise HttpError(422, "Indiquez votre nom ou prénom.")
     # A wrong camera clock would stretch both views to an empty future month for everyone.
@@ -152,6 +178,7 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
         flow_level=data.flow_level,
         comment=data.comment.strip(),
         author_name=author[:60],
+        owner=request.user,
         station=station,
         station_distance_m=distance,
     )
@@ -159,9 +186,8 @@ def publish_reading(request, data: Form[ReadingIn], photo: File[UploadedFile]):
         full, thumb = process_photo(photo, str(reading.id))
     except ValueError:
         raise HttpError(422, "Ce format d'image n'est pas pris en charge.")
-    key = reading.issue_edit_key()
     with transaction.atomic():
         reading.photo.save(full.name, full, save=False)
         reading.thumbnail.save(thumb.name, thumb, save=False)
         reading.save()
-    return Status(201, {"reading": reading, "station_distance_m": distance, "edit_key": key})
+    return Status(201, {"reading": reading, "station_distance_m": distance})

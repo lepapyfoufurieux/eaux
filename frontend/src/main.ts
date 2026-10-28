@@ -1,3 +1,4 @@
+import { mountAccountPage } from "./account/page";
 import { fetchReadings, fetchStations, fetchWatercourses } from "./api";
 import { mountExportForm } from "./export/form";
 import { $, storage } from "./html";
@@ -5,6 +6,7 @@ import { mountPublishForm } from "./publish/form";
 import { type AppState, dataSpan, state, subscribe, update } from "./state";
 import "./styles/main.css";
 import { mountMap } from "./views/map/map";
+import { mountReporting } from "./views/map/report";
 import { mountTimeBar } from "./views/map/timeBar";
 import { mountRiverView } from "./views/river/plan";
 
@@ -66,6 +68,8 @@ async function start(): Promise<void> {
   mountRiverView();
   mountPublishForm();
   mountExportForm();
+  mountAccountPage();
+  mountReporting();
 
   const [readings, stations, watercourses] = await Promise.all([fetchReadings(), fetchStations(), fetchWatercourses()]);
   state.readings = readings;

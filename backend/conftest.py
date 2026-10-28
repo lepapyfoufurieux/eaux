@@ -1,6 +1,7 @@
 from io import BytesIO
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import MultiPolygon, Point, Polygon
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -47,3 +48,8 @@ def photo_file():
         return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/jpeg")
 
     return make
+
+
+@pytest.fixture
+def contributor(db):
+    return get_user_model().objects.create_user(username="marion@example.org", email="marion@example.org", first_name="Marion")
