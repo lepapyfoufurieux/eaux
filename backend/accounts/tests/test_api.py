@@ -186,3 +186,13 @@ def test_my_readings_lists_only_mine_hidden_ones_included(client, contributor):
     client.force_login(contributor)
     listed = client.get("/api/me/readings").json()
     assert [(r["id"], r["status"]) for r in listed] == [(str(mine.id), "hidden")]
+
+
+def test_a_contributor_deletes_only_their_own_readings(client, contributor):
+    mine, other = reading(contributor), reading(None)
+    assert client.delete(f"/api/me/readings/{mine.id}").status_code == 401
+
+    client.force_login(contributor)
+    assert client.delete(f"/api/me/readings/{other.id}").status_code == 404
+    assert client.delete(f"/api/me/readings/{mine.id}").status_code == 204
+    assert list(Reading.objects.all()) == [other]

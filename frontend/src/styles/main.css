@@ -176,6 +176,11 @@ dialog h3 { margin: 4px 0 0; font-size: 1rem; }
 .my-readings img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; display: block; }
 .my-readings strong { border-left: 4px solid var(--c); padding-left: 6px; }
 .my-readings small { display: block; color: var(--ink-soft); }
+.my-readings li > div { flex: 1; }
+.my-readings .link { color: var(--ink-soft); font-size: 13px; }
+dialog.confirm { width: min(400px, calc(100vw - 32px)); }
+dialog.confirm p { color: var(--ink); }
+.btn.danger { background: var(--flow-dry); border-color: var(--flow-dry); color: #fff; }
 .link { font: inherit; padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; }
 .msg.fatal { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 1000; }
 

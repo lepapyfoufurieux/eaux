@@ -113,6 +113,7 @@ export const signOut = (): Promise<void> => write("/api/auth/logout", "POST");
 export const saveName = (name: string): Promise<Me> => write("/api/me", "PATCH", { name });
 /** Deletes the account and all its readings. */
 export const deleteAccount = (): Promise<void> => write("/api/me", "DELETE");
+export const deleteMyReading = (id: string): Promise<void> => write(`/api/me/readings/${encodeURIComponent(id)}`, "DELETE");
 
 export async function fetchMyReadings(): Promise<MyReading[]> {
   return (await getJSON<any[]>("/api/me/readings")).map((r) => ({ ...toReading(r), hidden: r.status === "hidden" }));

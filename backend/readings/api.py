@@ -117,6 +117,13 @@ def my_readings(request):
     return Reading.objects.filter(owner=request.user).select_related("station")
 
 
+@router.delete("/me/readings/{reading_id}", auth=django_auth, response={204: None})
+def delete_my_reading(request, reading_id: UUID):
+    """A contributor deletes one of their readings; editing is left to the admins. The signal removes the photo files."""
+    get_object_or_404(Reading, id=reading_id, owner=request.user).delete()
+    return Status(204, None)
+
+
 @router.get("/readings.csv")
 def export_readings(request, date_from: date | None = None, date_to: date | None = None):
     return csv_response(published_readings(date_from, date_to))

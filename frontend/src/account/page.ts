@@ -1,4 +1,4 @@
-import { deleteAccount, fetchMe, fetchMyReadings, type MyReading, saveName, signOut } from "../api";
+import { deleteAccount, deleteMyReading, fetchMe, fetchMyReadings, type MyReading, saveName, signOut } from "../api";
 import { FLOW } from "../domain/flow";
 import { $, esc, formatDate } from "../html";
 import { state, update } from "../state";
@@ -15,7 +15,36 @@ function item(r: MyReading): string {
     <a href="${esc(r.photo)}" target="_blank" rel="noopener"><img src="${esc(r.thumbnail)}" alt="Photo du ${formatDate(r.takenAt)}"></a>
     <div><strong style="--c:${FLOW[r.flowLevel].colour}">${FLOW[r.flowLevel].label}</strong> · ${formatDate(r.takenAt)}
       <small>${station ? `${esc(station.code)} · ${esc(station.name)}` : "Sans station"}${r.hidden ? " · masqué par l'association" : ""}</small></div>
+    <button type="button" class="link" data-delete="${esc(r.id)}" aria-label="Supprimer le relevé du ${formatDate(r.takenAt)}">Supprimer</button>
   </li>`;
+}
+
+/** Our own Confirmer / Annuler box, over the account dialog: confirm() is blocked in some browsers (in-app ones answer "no" at once). */
+function askConfirm(question: string, okLabel: string): Promise<boolean> {
+  const box = document.createElement("dialog");
+  box.className = "confirm";
+  box.innerHTML = `
+    <form method="dialog">
+      <p>${esc(question)}</p>
+      <div class="buttons">
+        <button class="btn" value="no" autofocus>Annuler</button>
+        <button class="btn danger" value="yes">${esc(okLabel)}</button>
+      </div>
+    </form>`;
+  document.body.append(box);
+  box.showModal();
+  return new Promise((resolve) =>
+    box.addEventListener("close", () => {
+      resolve(box.returnValue === "yes");
+      box.remove();
+    }),
+  );
+}
+
+function onConfirmedClick(button: HTMLElement, question: string, okLabel: string, action: () => Promise<void>): void {
+  button.addEventListener("click", async () => {
+    if (await askConfirm(question, okLabel)) await action();
+  });
 }
 
 async function open(notice = ""): Promise<void> {
@@ -50,8 +79,20 @@ async function open(notice = ""): Promise<void> {
     await signOut().catch(() => undefined);
     dialog.close();
   });
-  $("#a-delete").addEventListener("click", async () => {
-    if (!confirm(`Supprimer votre compte et vos ${mine.length} photos ? C'est définitif.`)) return;
+  dialog.querySelectorAll<HTMLButtonElement>("[data-delete]").forEach((button) =>
+    onConfirmedClick(button, "Supprimer ce relevé et sa photo ? C'est définitif.", "Supprimer", async () => {
+      const id = button.dataset.delete!;
+      try {
+        await deleteMyReading(id);
+        update({ readings: state.readings.filter((r) => r.id !== id) });
+        await open(`<div class="msg ok">Relevé supprimé.</div>`);
+      } catch (error) {
+        fail(error);
+      }
+    }),
+  );
+  const photos = mine.length === 1 ? "votre photo" : `vos ${mine.length} photos`;
+  onConfirmedClick($("#a-delete"), `Supprimer votre compte et ${photos} ? C'est définitif.`, "Supprimer mon compte", async () => {
     try {
       await deleteAccount();
       update({ readings: state.readings.filter((r) => !ids.has(r.id)) });
