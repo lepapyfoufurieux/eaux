@@ -22,6 +22,7 @@ Browser ──GET /api/readings, /api/stations, /api/geo/*──▶ Caddy ──
 | Model | Key fields | Notes |
 | --- | --- | --- |
 | `readings.Reading` | photo, thumbnail, location, taken_at, flow_level, comment, author_name, owner, station, station_distance_m, status | One photo per reading. `status=hidden` is how admins moderate; deleting a reading also deletes its photo files. `owner` is empty for readings published before accounts; `author_name` is the account's name, rewritten when it changes. |
+| `readings.Report` | reading, reporter, created_at | A signed-in visitor flags a photo, once per account. Admins see the count in the readings list (sortable) and the reports on each reading. |
 | `auth.User` (Django's) | email, first_name (display name), is_active | A contributor account. Inactive = suspended: no sign-in, open sessions end. Contributors have no password. |
 | `readings.Station` | code (S01…), name, watercourse, location, order, active | Fixed points of the river plan. |
 | `geo.Watercourse` | name, topage_code, geometry, tributary_of, confluence_position | `tributary_of` and `confluence_position` drive the river plan layout. |
@@ -40,6 +41,7 @@ Flow levels are stable codes: `dry`, `very_low`, `normal`, `high` (labels: Assec
 | A station's state is its latest reading from the last two months | `frontend/src/domain/stationState.ts` |
 | River plan layout from watercourses and station order | `frontend/src/domain/riverPlan.ts` |
 | Only an active, signed-in account publishes; sign-in links and codes are single-use and valid 30 minutes; a code dies after 5 wrong tries | `accounts/api.py`, `readings/api.py` (`auth=django_auth`), `publish/form.ts` |
+| Only a signed-in account reports a photo, once; the count shows in the admin | `readings/api.py` (`report_reading`), `readings/admin.py`, `views/map/report.ts` |
 | Suspend an account and hide its readings; renaming an account renames its readings | `accounts/admin.py`, `accounts.api.set_name` |
 
 Everything in `frontend/src/domain/` is free of DOM and Leaflet code, so it can be unit-tested and reused by both views.
@@ -51,7 +53,7 @@ Only signed-in contributors publish; reading stays public. Design document (in F
 - **Sign-in by e-mail, no password.** `POST /api/auth/link` mails a 6-digit code and a signed link, both single-use and valid 30 minutes; the first sign-in creates the account. The code is typed in the publish form (`POST /api/auth/code`), because a phone's mail app opens the link in another browser than the site's. Only the latest code counts, kept in the cache. Sessions last a year per device. Mail goes out through the association's domain mailbox (SMTP settings in `.env`).
 - **No new table.** Django's `User` holds the account (`email`, `first_name` = display name, `is_active`). `Reading` gains `owner` and loses `edit_key_hash`; `author_name` stays and is rewritten on all of an account's readings when its name changes.
 - **Moderation after the fact, in the Django admin.** New accounts publish at once; admins can suspend an account (which ends its sessions), hide all its readings in one action, reactivate it or delete it with its readings and photo files.
-- **API.** `/api/auth/link`, `/api/auth/code`, `/api/auth/login`, `/api/auth/logout`, `GET/PATCH/DELETE /api/me`, `GET /api/me/readings` (the "Mon compte" page, hidden readings included), `DELETE /api/me/readings/{id}` (a contributor deletes a reading; editing stays with the admins, so a contributor cannot rewrite a reading after the fact); `POST /api/readings` requires a session (Django Ninja `django_auth`, CSRF header) and is limited to 30 per hour per account.
+- **API.** `/api/auth/link`, `/api/auth/code`, `/api/auth/login`, `/api/auth/logout`, `GET/PATCH/DELETE /api/me`, `GET /api/me/readings` (the "Mon compte" page, hidden readings included), `POST /api/readings/{id}/report` ("Signaler cette photo" in the map popups, 30 per hour per account), `DELETE /api/me/readings/{id}` (a contributor deletes a reading; editing stays with the admins, so a contributor cannot rewrite a reading after the fact); `POST /api/readings` requires a session (Django Ninja `django_auth`, CSRF header) and is limited to 30 per hour per account.
 
 ## Not built yet
 

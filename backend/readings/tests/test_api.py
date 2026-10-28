@@ -3,6 +3,7 @@ import io
 from pathlib import Path
 
 import pytest
+from django.contrib import admin
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 
@@ -149,3 +150,23 @@ def test_deleting_a_reading_removes_its_files(client, basin, stations, photo_fil
 
     Reading.objects.all().delete()  # what the admin's bulk delete does
     assert not any(p.exists() for p in paths)
+
+
+def test_signed_in_visitors_report_a_photo_once(client, basin, stations, photo_file, contributor, rf):
+    reading_id = publish(client, photo_file()).json()["reading"]["id"]
+    url = f"/api/readings/{reading_id}/report"
+    assert client.post(url).status_code == 204
+    assert client.post(url).status_code == 204
+    reading = Reading.objects.get()
+    assert list(reading.reports.values_list("reporter", flat=True)) == [contributor.pk]
+
+    reading_admin = admin.site._registry[Reading]
+    listed = reading_admin.get_queryset(rf.get("/"))
+    assert listed.get().report_count == 1
+    reading_admin.hide(rf.post("/"), listed)
+    reading.refresh_from_db()
+    assert reading.status == Reading.Status.HIDDEN
+    assert client.post(url).status_code == 404
+
+    client.logout()
+    assert client.post(url).status_code == 401

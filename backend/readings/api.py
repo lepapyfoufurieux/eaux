@@ -18,7 +18,7 @@ from geo.models import Basin
 from .attachment import nearest_station
 from .export import csv_response, published_readings
 from .images import process_photo
-from .models import FlowLevel, Reading, Station
+from .models import FlowLevel, Reading, Report, Station
 
 router = Router(tags=["readings"])
 MAX_COMMENT_CHARS = 2000
@@ -121,6 +121,14 @@ def my_readings(request):
 def delete_my_reading(request, reading_id: UUID):
     """A contributor deletes one of their readings; editing is left to the admins. The signal removes the photo files."""
     get_object_or_404(Reading, id=reading_id, owner=request.user).delete()
+    return Status(204, None)
+
+
+@router.post("/readings/{reading_id}/report", auth=django_auth, response={204: None}, throttle=[UserRateThrottle("30/h")])
+def report_reading(request, reading_id: UUID):
+    """A signed-in visitor flags a photo; reporting it twice counts once."""
+    reading = get_object_or_404(Reading, id=reading_id, status=Reading.Status.PUBLISHED)
+    Report.objects.get_or_create(reading=reading, reporter=request.user)
     return Status(204, None)
 
 

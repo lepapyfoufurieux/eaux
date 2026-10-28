@@ -120,6 +120,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .sheet-reading img { width: 100%; border-radius: 6px; }
 .sheet-reading .where { font-weight: 700; font-size: 14px; }
 .sheet-reading .who { font-weight: 600; }
+.sheet-reading .report { display: block; margin-top: 6px; color: var(--ink-soft); font-size: 12px; }
+.sheet-reading .report:disabled { text-decoration: none; cursor: default; }
 .sheet-reading .when, .sheet-group .count { color: var(--ink-soft); font-size: 13px; }
 .sheet-group .track { display: flex; align-items: center; gap: 4px; }
 .sheet-group .nav { border: 0; background: none; font-size: 22px; cursor: pointer; color: inherit; }

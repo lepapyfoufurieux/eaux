@@ -72,6 +72,19 @@ class Reading(models.Model):
         return f"{self.get_flow_level_display()} · {self.taken_at:%d/%m/%Y} · {self.author_name}"
 
 
+class Report(models.Model):
+    """A signed-in visitor flags a photo; admins see the count in the readings list and decide."""
+
+    reading = models.ForeignKey(Reading, verbose_name="relevé", on_delete=models.CASCADE, related_name="reports")
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="signalé par", on_delete=models.CASCADE, related_name="reports")
+    created_at = models.DateTimeField("signalé le", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "signalement"
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["reading", "reporter"], name="one_report_per_account")]
+
+
 @receiver(post_delete, sender=Reading)
 def delete_files(sender, instance, **kwargs):
     # Django keeps the files of deleted rows, and Caddy would keep serving them.

@@ -13,6 +13,7 @@ export function readingSheet(r: Reading): string {
     <a class="photo" href="${r.photo}" target="_blank" rel="noopener"><img src="${r.thumbnail}" alt="Photo du cours d'eau, ${FLOW[r.flowLevel].label.toLowerCase()}"></a>
     <span class="chip" style="--c:${FLOW[r.flowLevel].colour}"><i></i>${FLOW[r.flowLevel].label}</span>
     ${r.comment ? `<p class="note">${esc(r.comment)}</p>` : ""}
+    <button type="button" class="link report" data-report="${esc(r.id)}">Signaler cette photo</button>
   </div>`;
 }
 

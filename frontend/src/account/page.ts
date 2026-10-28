@@ -1,4 +1,5 @@
 import { deleteAccount, deleteMyReading, fetchMe, fetchMyReadings, type MyReading, saveName, signOut } from "../api";
+import { askConfirm } from "../confirm";
 import { FLOW } from "../domain/flow";
 import { $, esc, formatDate } from "../html";
 import { state, update } from "../state";
@@ -17,28 +18,6 @@ function item(r: MyReading): string {
       <small>${station ? `${esc(station.code)} · ${esc(station.name)}` : "Sans station"}${r.hidden ? " · masqué par l'association" : ""}</small></div>
     <button type="button" class="link" data-delete="${esc(r.id)}" aria-label="Supprimer le relevé du ${formatDate(r.takenAt)}">Supprimer</button>
   </li>`;
-}
-
-/** Our own Confirmer / Annuler box, over the account dialog: confirm() is blocked in some browsers (in-app ones answer "no" at once). */
-function askConfirm(question: string, okLabel: string): Promise<boolean> {
-  const box = document.createElement("dialog");
-  box.className = "confirm";
-  box.innerHTML = `
-    <form method="dialog">
-      <p>${esc(question)}</p>
-      <div class="buttons">
-        <button class="btn" value="no" autofocus>Annuler</button>
-        <button class="btn danger" value="yes">${esc(okLabel)}</button>
-      </div>
-    </form>`;
-  document.body.append(box);
-  box.showModal();
-  return new Promise((resolve) =>
-    box.addEventListener("close", () => {
-      resolve(box.returnValue === "yes");
-      box.remove();
-    }),
-  );
 }
 
 function onConfirmedClick(button: HTMLElement, question: string, okLabel: string, action: () => Promise<void>): void {
