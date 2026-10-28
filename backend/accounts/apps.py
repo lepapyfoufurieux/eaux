@@ -2,11 +2,12 @@ from django.apps import AppConfig
 from django.db.models.signals import post_migrate
 
 MODERATORS = "Modérateurs"
-# Hide and republish readings, clear reports, suspend and reactivate accounts, keep stations, watercourses and springs up to date.
+# Hide, delete and republish readings, clear reports, suspend and reactivate accounts, keep stations, watercourses and springs up to date.
 # The catchment outline, staff accounts and rights stay with the admins.
 MODERATOR_PERMISSIONS = [
     ("readings", "view_reading"),
     ("readings", "change_reading"),
+    ("readings", "delete_reading"),
     ("readings", "view_report"),
     ("readings", "delete_report"),
     *[(app, f"{action}_{model}") for app, model in [("readings", "station"), ("geo", "watercourse"), ("geo", "spring")]

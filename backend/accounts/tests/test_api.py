@@ -218,7 +218,7 @@ def test_moderators_moderate_and_keep_the_map_data_but_not_staff_accounts(client
     for page in ["readings/station", "geo/watercourse", "geo/spring", "readings/station/add", "geo/spring/add"]:
         assert client.get(f"/admin/{page}/").status_code == 200, page
     assert client.get("/admin/geo/basin/").status_code == 403
-    client.post("/admin/readings/reading/", {"action": "hide", "_selected_action": [mine.pk]})
+    client.post("/admin/readings/reading/", {"action": "hide", "_selected_action": [mine.pk], "apply": "1", "reason": "blurry"})
     mine.refresh_from_db()
     assert mine.status == Reading.Status.HIDDEN
 
