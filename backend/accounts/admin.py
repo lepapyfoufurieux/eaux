@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import PermissionDenied
@@ -9,6 +10,7 @@ from django.utils.html import format_html
 from readings.models import Reading
 
 from .api import set_name
+from .models import ModerationLog
 
 User = get_user_model()
 admin.site.unregister(User)
@@ -66,14 +68,49 @@ class AccountAdmin(UserAdmin):
 
     @admin.action(description="Suspendre et masquer leurs relevés", permissions=["change"])
     def suspend_and_hide(self, request, queryset):
-        queryset = self.contributors(request, queryset)
-        queryset.update(is_active=False)
-        Reading.objects.filter(owner__in=queryset).update(status=Reading.Status.HIDDEN)
+        accounts = list(self.contributors(request, queryset))
+        readings = list(Reading.objects.filter(owner__in=accounts, status=Reading.Status.PUBLISHED))
+        User.objects.filter(pk__in=[a.pk for a in accounts]).update(is_active=False)
+        Reading.objects.filter(pk__in=[r.pk for r in readings]).update(status=Reading.Status.HIDDEN)
+        LogEntry.objects.log_actions(request.user.pk, accounts, CHANGE, "Suspendu, relevés masqués.")
+        LogEntry.objects.log_actions(request.user.pk, readings, CHANGE, "Masqué avec la suspension du compte.")
 
     @admin.action(description="Suspendre (les relevés restent en ligne)", permissions=["change"])
     def suspend(self, request, queryset):
-        self.contributors(request, queryset).update(is_active=False)
+        accounts = list(self.contributors(request, queryset))
+        User.objects.filter(pk__in=[a.pk for a in accounts]).update(is_active=False)
+        LogEntry.objects.log_actions(request.user.pk, accounts, CHANGE, "Suspendu.")
 
     @admin.action(description="Réactiver (les relevés masqués le restent)", permissions=["change"])
     def reactivate(self, request, queryset):
-        self.contributors(request, queryset).update(is_active=True)
+        accounts = list(self.contributors(request, queryset))
+        User.objects.filter(pk__in=[a.pk for a in accounts]).update(is_active=True)
+        LogEntry.objects.log_actions(request.user.pk, accounts, CHANGE, "Réactivé.")
+
+
+@admin.register(ModerationLog)
+class ModerationLogAdmin(admin.ModelAdmin):
+    """Read-only: every change made in the admin, bulk actions included, with the reason given."""
+
+    list_display = ["action_time", "user", "action", "content_type", "object_repr", "message"]
+    list_filter = ["action_flag", ("content_type", admin.RelatedOnlyFieldListFilter), ("user", admin.RelatedOnlyFieldListFilter)]
+    search_fields = ["object_repr", "change_message", "user__email", "user__username"]
+    date_hierarchy = "action_time"
+    list_select_related = ["user", "content_type"]
+
+    @admin.display(description="action", ordering="action_flag")
+    def action(self, obj):
+        return {ADDITION: "Ajout", CHANGE: "Modification", DELETION: "Suppression"}[obj.action_flag]
+
+    @admin.display(description="détail")
+    def message(self, obj):
+        return obj.get_change_message()
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

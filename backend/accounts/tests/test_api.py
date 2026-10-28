@@ -235,3 +235,8 @@ def test_moderators_moderate_and_keep_the_map_data_but_not_staff_accounts(client
     client.post("/admin/auth/user/", {"action": "suspend", "_selected_action": [boss.pk, contributor.pk]})
     boss.refresh_from_db(), contributor.refresh_from_db()
     assert (boss.is_active, contributor.is_active) == (True, False)
+
+    # Everything above is in the moderation log, which the moderator reads but cannot change.
+    log = client.get("/admin/accounts/moderationlog/")
+    assert log.status_code == 200 and "Suspendu." in log.text and "Motif : Photo floue ou trop sombre" in log.text
+    assert client.post("/admin/accounts/moderationlog/1/delete/").status_code == 403

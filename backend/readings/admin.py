@@ -3,6 +3,7 @@ from collections import defaultdict
 from django import forms
 from django.contrib import messages
 from django.contrib.admin import ActionLocation, helpers
+from django.contrib.admin.models import CHANGE, DELETION, LogEntry
 from django.contrib.gis import admin
 from django.core.mail import send_mail
 from django.db.models import Count
@@ -62,6 +63,14 @@ class ReasonForm(forms.Form):
         if data.get("reason") == "other" and not data.get("message", "").strip():
             self.add_error("message", "Précisez la raison.")
         return data
+
+
+def reason_text(form):
+    """The reason as one line, for the moderation log."""
+    reason, message = form.cleaned_data["reason"], form.cleaned_data["message"].strip()
+    if reason == "other":
+        return message
+    return f"{dict(REASONS)[reason]} ({message})" if message else dict(REASONS)[reason]
 
 
 def notices(readings, done, form):
@@ -138,6 +147,8 @@ class ReadingAdmin(admin.GISModelAdmin):
         if form.is_valid():
             mails = list(notices(readings, done, form))
             apply()
+            flag = DELETION if action == "delete_with_reason" else CHANGE
+            LogEntry.objects.log_actions(request.user.pk, readings, flag, f"{done.capitalize()}. Motif : {reason_text(form)}")
             try:
                 for to, body in mails:
                     send_mail(f"Votre photo a été {done}e · Eaux de Saurat", body, None, [to])
@@ -159,4 +170,6 @@ class ReadingAdmin(admin.GISModelAdmin):
 
     @admin.action(description="Republier les relevés sélectionnés", permissions=["change"])
     def publish(self, request, queryset):
+        readings = list(queryset.filter(status=Reading.Status.HIDDEN))
         queryset.update(status=Reading.Status.PUBLISHED)
+        LogEntry.objects.log_actions(request.user.pk, readings, CHANGE, "Republié.")

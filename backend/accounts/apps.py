@@ -14,6 +14,7 @@ MODERATOR_PERMISSIONS = [
       for action in ["view", "add", "change", "delete"]],
     ("auth", "view_user"),
     ("auth", "change_user"),
+    ("accounts", "view_moderationlog"),
 ]
 
 

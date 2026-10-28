@@ -2,6 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+from django.contrib.admin.models import CHANGE, DELETION, LogEntry
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
 from django.core import mail
@@ -44,6 +45,10 @@ def test_hiding_asks_a_reason_then_mails_it_to_each_contributor(admin_client, co
     assert notice.to == ["marion@example.org"]
     assert "masqué vos 2 photos" in notice.body
     assert "Photo floue ou trop sombre" in notice.body and "Reprenez-la de jour." in notice.body
+    logged = LogEntry.objects.filter(action_flag=CHANGE)
+    assert sorted(logged.values_list("object_id", flat=True)) == sorted(str(r.pk) for r in (first, second, older))
+    assert logged.first().get_change_message() == "Masqué. Motif : Photo floue ou trop sombre (Reprenez-la de jour.)"
+    assert "Reprenez-la de jour." in admin_client.get("/admin/accounts/moderationlog/").text
 
 
 def test_other_reason_needs_a_message(admin_client, contributor):
@@ -56,6 +61,7 @@ def test_other_reason_needs_a_message(admin_client, contributor):
     admin_client.post(CHANGELIST, {**selected, "message": "Photo d'un autre ruisseau."})
     assert not Reading.objects.exists()
     assert "supprimé votre photo" in mail.outbox[0].body and "Photo d'un autre ruisseau." in mail.outbox[0].body
+    assert LogEntry.objects.get(action_flag=DELETION).get_change_message() == "Supprimé. Motif : Photo d'un autre ruisseau."
 
 
 def test_the_bulk_delete_without_reason_is_gone(admin_client, contributor):
