@@ -59,6 +59,7 @@ class NameIn(Schema):
 
 class MeOut(Schema):
     name: str
+    email: str
 
 
 def find_user(email):
@@ -163,7 +164,7 @@ def me(request):
     get_token(request)
     if not request.user.is_authenticated:
         return Status(401, None)
-    return {"name": request.user.first_name}
+    return {"name": request.user.first_name, "email": request.user.email}
 
 
 @router.patch("/me", auth=django_auth, response=MeOut)
@@ -174,7 +175,7 @@ def rename(request, data: NameIn):
     if len(name) > MAX_NAME_CHARS:
         raise HttpError(422, f"Le nom dépasse {MAX_NAME_CHARS} caractères.")
     set_name(request.user, name)
-    return {"name": name}
+    return {"name": name, "email": request.user.email}
 
 
 @router.delete("/me", auth=django_auth, response={204: None})

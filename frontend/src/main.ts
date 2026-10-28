@@ -1,3 +1,4 @@
+import { mountAccountPage } from "./account/page";
 import { fetchReadings, fetchStations, fetchWatercourses } from "./api";
 import { mountExportForm } from "./export/form";
 import { $, storage } from "./html";
@@ -66,6 +67,7 @@ async function start(): Promise<void> {
   mountRiverView();
   mountPublishForm();
   mountExportForm();
+  mountAccountPage();
 
   const [readings, stations, watercourses] = await Promise.all([fetchReadings(), fetchStations(), fetchWatercourses()]);
   state.readings = readings;

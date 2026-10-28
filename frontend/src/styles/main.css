@@ -170,6 +170,12 @@ dialog input[type="text"], dialog input[type="email"], dialog textarea, dialog s
 .msg.error { padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--flow-dry) 12%, transparent); }
 .msg.ok { padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--flow-normal) 12%, transparent); }
 dialog p, dialog .hint { margin: 0; color: var(--ink-soft); }
+dialog h3 { margin: 4px 0 0; font-size: 1rem; }
+.my-readings { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 40vh; overflow-y: auto; }
+.my-readings li { display: flex; gap: 10px; align-items: center; }
+.my-readings img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; display: block; }
+.my-readings strong { border-left: 4px solid var(--c); padding-left: 6px; }
+.my-readings small { display: block; color: var(--ink-soft); }
 .link { font: inherit; padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; }
 .msg.fatal { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 1000; }
 

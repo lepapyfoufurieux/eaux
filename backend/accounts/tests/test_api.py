@@ -51,7 +51,7 @@ def test_first_link_creates_the_account_and_signs_in(client):
     assert response.status_code == 302 and response.url == "/?connexion=ok"
     user = User.objects.get()
     assert (user.email, user.first_name, user.has_usable_password()) == ("marion@example.org", "", False)
-    assert client.get("/api/me").json() == {"name": ""}
+    assert client.get("/api/me").json() == {"name": "", "email": "marion@example.org"}
 
 
 def test_link_signs_in_an_existing_account_once(client, contributor):
@@ -97,7 +97,7 @@ def test_renaming_renames_the_published_readings(client, contributor):
     client.force_login(contributor)
 
     response = client.patch("/api/me", {"name": " Marion D. "}, content_type="application/json")
-    assert response.json() == {"name": "Marion D."}
+    assert response.json() == {"name": "Marion D.", "email": "marion@example.org"}
     mine.refresh_from_db(), older.refresh_from_db()
     assert (mine.author_name, older.author_name) == ("Marion D.", "Ancien")
     assert client.patch("/api/me", {"name": " "}, content_type="application/json").status_code == 422
@@ -143,7 +143,7 @@ def test_mailed_code_signs_in_once(client):
     code = mailed_code()
     assert code in mail.outbox[-1].subject
     assert send_code(client, code, " Marion@Example.org ").status_code == 204
-    assert client.get("/api/me").json() == {"name": ""}
+    assert client.get("/api/me").json()["email"] == "marion@example.org"
 
     client.logout()
     assert send_code(client, code).status_code == 400
@@ -176,3 +176,13 @@ def test_suspended_account_cannot_sign_in_with_a_code(client, contributor):
     ask_link(client)
     assert send_code(client, mailed_code()).status_code == 403
     assert client.get("/api/me").status_code == 401
+
+
+def test_my_readings_lists_only_mine_hidden_ones_included(client, contributor):
+    mine = reading(contributor, status=Reading.Status.HIDDEN, photo="photos/a.jpg", thumbnail="thumbs/a.jpg")
+    reading(None)
+    assert client.get("/api/me/readings").status_code == 401
+
+    client.force_login(contributor)
+    listed = client.get("/api/me/readings").json()
+    assert [(r["id"], r["status"]) for r in listed] == [(str(mine.id), "hidden")]

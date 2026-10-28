@@ -29,6 +29,7 @@ See [docs/architecture.md](docs/architecture.md) for how the parts fit together 
 ```
 backend/    Django project
   eds/        settings, URLs, API root
+  accounts/   sign-in by e-mail (code or link), "Mon compte" API, account moderation in the admin
   readings/   Station and Reading models, API, attachment to stations, CSV export, admin
   geo/        Basin, Watercourse, Spring models and the IGN / OFB import command
 frontend/   Vite app
@@ -36,6 +37,7 @@ frontend/   Vite app
   src/views/    map/ and river/
   src/publish/  EXIF reading, compression, publish form
   src/export/   CSV export form
+  src/account/  sign-in by e-mail code and the "Mon compte" page
 data/       reference geodata (see data/README.md)
 ops/        Caddy image, backup script, restore procedure
 ```

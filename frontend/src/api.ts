@@ -73,6 +73,12 @@ export interface Published {
 export interface Me {
   /** Shown under the photos; empty until the contributor gives it. */
   name: string;
+  email: string;
+}
+
+/** One of the signed-in account's readings; an admin may have hidden it. */
+export interface MyReading extends Reading {
+  hidden: boolean;
 }
 
 /** Django's CSRF token, set by GET /api/me; every write sends it back. */
@@ -105,6 +111,12 @@ export const signInWithCode = (email: string, code: string): Promise<void> => wr
 export const signOut = (): Promise<void> => write("/api/auth/logout", "POST");
 /** Also renames the account's readings already published. */
 export const saveName = (name: string): Promise<Me> => write("/api/me", "PATCH", { name });
+/** Deletes the account and all its readings. */
+export const deleteAccount = (): Promise<void> => write("/api/me", "DELETE");
+
+export async function fetchMyReadings(): Promise<MyReading[]> {
+  return (await getJSON<any[]>("/api/me/readings")).map((r) => ({ ...toReading(r), hidden: r.status === "hidden" }));
+}
 
 export async function publishReading(input: NewReading): Promise<Published> {
   const form = new FormData();

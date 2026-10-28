@@ -79,6 +79,11 @@ class ReadingOut(Schema):
         return obj.thumbnail.url
 
 
+class MyReadingOut(ReadingOut):
+    # The contributor also sees the readings an admin hid.
+    status: str
+
+
 class ReadingIn(Schema):
     # Missing when the photo lost its position (messaging apps); a station is then required.
     lat: float | None = None
@@ -104,6 +109,12 @@ def list_stations(request):
 def list_readings(request):
     """Every published reading, without the images. The map and the river plan both work from this list."""
     return Reading.objects.filter(status=Reading.Status.PUBLISHED).select_related("station")
+
+
+@router.get("/me/readings", auth=django_auth, response=list[MyReadingOut])
+def my_readings(request):
+    """The "Mon compte" page: every reading of the signed-in account, hidden ones included."""
+    return Reading.objects.filter(owner=request.user).select_related("station")
 
 
 @router.get("/readings.csv")
