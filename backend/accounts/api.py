@@ -1,5 +1,6 @@
-"""Contributor accounts: sign in with a link sent by e-mail, no password. The first sign-in creates the account."""
+"""Contributor accounts: sign in with a link or a code sent by e-mail, no password. The first sign-in creates the account."""
 
+import secrets
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -24,22 +25,32 @@ router = Router(tags=["accounts"])
 User = get_user_model()
 SALT = "accounts.login-link"
 LINKS_PER_HOUR = 5
+CODE_TRIES = 5
 # The name is copied to Reading.author_name; the e-mail is the username, which holds 150 characters.
 MAX_NAME_CHARS = 60
 MAX_EMAIL_CHARS = 150
 
 MESSAGE = """Bonjour,
 
-Pour vous connecter au site Eaux de Saurat, ouvrez ce lien :
+Pour vous connecter au site Eaux de Saurat, tapez ce code dans le formulaire :
+
+    {code}
+
+ou ouvrez ce lien :
 
 {link}
 
-Il est valable 30 minutes et ne sert qu'une fois. Si vous n'avez rien demandé, ignorez ce message.
+Le code et le lien sont valables 30 minutes et ne servent qu'une fois. Si vous n'avez rien demandé, ignorez ce message.
 """
 
 
 class LinkIn(Schema):
     email: str
+
+
+class CodeIn(Schema):
+    email: str
+    code: str
 
 
 class NameIn(Schema):
@@ -66,6 +77,16 @@ def sign_in_path(email):
     return "/api/auth/login?" + urlencode({"token": token})
 
 
+def open_session(request, email, user):
+    """Signs in, creating the account at its first sign-in; a suspended account is refused. Returns the ?connexion= word."""
+    if user is None:
+        user = User.objects.create_user(username=email, email=email)
+    elif not user.is_active:
+        return "suspendu"
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    return "ok"
+
+
 def set_name(user, name):
     """The name shown under the photos; changing it renames the account's readings already published."""
     with transaction.atomic():
@@ -88,7 +109,12 @@ def send_link(request, data: LinkIn):
     cache.add(key, 0, 3600)
     if cache.incr(key) <= LINKS_PER_HOUR:
         link = request.build_absolute_uri(sign_in_path(email))
-        send_mail("Votre lien de connexion · Eaux de Saurat", MESSAGE.format(link=link), None, [email])
+        code = f"{secrets.randbelow(10**6):06d}"
+        # Only the latest code counts; it goes once used, after 30 minutes or after CODE_TRIES wrong tries.
+        cache.set(f"login-code:{email}", code, settings.LOGIN_LINK_MAX_AGE)
+        cache.delete(f"login-code-tries:{email}")
+        subject = f"{code} : votre code de connexion · Eaux de Saurat"
+        send_mail(subject, MESSAGE.format(code=code, link=link), None, [email])
     return Status(204, None)
 
 
@@ -102,12 +128,27 @@ def sign_in(request, token: str):
     user = find_user(data["email"])
     if data["last"] != last_login(user):
         return HttpResponseRedirect("/?connexion=invalide")
-    if user is None:
-        user = User.objects.create_user(username=data["email"], email=data["email"])
-    elif not user.is_active:
-        return HttpResponseRedirect("/?connexion=suspendu")
-    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    return HttpResponseRedirect("/?connexion=ok")
+    return HttpResponseRedirect(f"/?connexion={open_session(request, data['email'], user)}")
+
+
+@router.post("/auth/code", response={204: None}, throttle=[AnonRateThrottle("30/h")])
+def sign_in_with_code(request, data: CodeIn):
+    """The code typed in the form: on a phone, the mail app would open the link in another browser than the site's."""
+    email = data.email.strip().lower()
+    key, tries = f"login-code:{email}", f"login-code-tries:{email}"
+    code = cache.get(key)
+    if code is None:
+        raise HttpError(400, "Ce code a expiré ou a déjà servi : demandez-en un nouveau.")
+    if not secrets.compare_digest(code.encode(), data.code.strip().encode()):
+        cache.add(tries, 0, settings.LOGIN_LINK_MAX_AGE)
+        if cache.incr(tries) >= CODE_TRIES:
+            cache.delete(key)
+            raise HttpError(400, "Trop d'essais : demandez un nouveau code.")
+        raise HttpError(400, "Ce code n'est pas le bon.")
+    cache.delete(key)
+    if open_session(request, email, find_user(email)) == "suspendu":
+        raise HttpError(403, "Ce compte est suspendu. Contactez l'association.")
+    return Status(204, None)
 
 
 @router.post("/auth/logout", auth=django_auth, response={204: None})

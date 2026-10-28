@@ -20,6 +20,14 @@ def ask_link(client, email="marion@example.org"):
     return client.post("/api/auth/link", {"email": email}, content_type="application/json")
 
 
+def mailed_code():
+    return re.search(r"^    (\d{6})$", mail.outbox[-1].body, re.M).group(1)
+
+
+def send_code(client, code, email="marion@example.org"):
+    return client.post("/api/auth/code", {"email": email, "code": code}, content_type="application/json")
+
+
 def mailed_link():
     return re.search(r"http://testserver(/api/auth/login\?token=\S+)", mail.outbox[-1].body).group(1)
 
@@ -128,3 +136,43 @@ def test_account_added_in_the_admin_without_email_signs_in(client):
     ask_link(client)
     assert client.get(mailed_link()).url == "/?connexion=ok"
     assert list(User.objects.all()) == [added]
+
+
+def test_mailed_code_signs_in_once(client):
+    ask_link(client)
+    code = mailed_code()
+    assert code in mail.outbox[-1].subject
+    assert send_code(client, code, " Marion@Example.org ").status_code == 204
+    assert client.get("/api/me").json() == {"name": ""}
+
+    client.logout()
+    assert send_code(client, code).status_code == 400
+    assert client.get("/api/me").status_code == 401
+
+
+def test_only_the_latest_code_counts(client):
+    ask_link(client)
+    first = mailed_code()
+    ask_link(client)
+    latest = mailed_code()
+    if first != latest:
+        assert send_code(client, first).status_code == 400
+    assert send_code(client, latest).status_code == 204
+
+
+def test_wrong_codes_wipe_the_code(client):
+    ask_link(client)
+    code = mailed_code()
+    wrong = f"{(int(code) + 1) % 10**6:06d}"
+    for _ in range(5):
+        assert send_code(client, wrong).status_code == 400
+    assert send_code(client, code).status_code == 400
+    assert client.get("/api/me").status_code == 401
+
+
+def test_suspended_account_cannot_sign_in_with_a_code(client, contributor):
+    contributor.is_active = False
+    contributor.save()
+    ask_link(client)
+    assert send_code(client, mailed_code()).status_code == 403
+    assert client.get("/api/me").status_code == 401

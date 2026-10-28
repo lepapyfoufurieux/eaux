@@ -39,7 +39,7 @@ Flow levels are stable codes: `dry`, `very_low`, `normal`, `high` (labels: Assec
 | Group photos whose spread is under 50 m | `frontend/src/domain/grouping.ts` |
 | A station's state is its latest reading from the last two months | `frontend/src/domain/stationState.ts` |
 | River plan layout from watercourses and station order | `frontend/src/domain/riverPlan.ts` |
-| Only an active, signed-in account publishes; sign-in links are signed, single-use and valid 30 minutes | `accounts/api.py`, `readings/api.py` (`auth=django_auth`), `publish/form.ts` |
+| Only an active, signed-in account publishes; sign-in links and codes are single-use and valid 30 minutes; a code dies after 5 wrong tries | `accounts/api.py`, `readings/api.py` (`auth=django_auth`), `publish/form.ts` |
 | Suspend an account and hide its readings; renaming an account renames its readings | `accounts/admin.py`, `accounts.api.set_name` |
 
 Everything in `frontend/src/domain/` is free of DOM and Leaflet code, so it can be unit-tested and reused by both views.
@@ -48,10 +48,10 @@ Everything in `frontend/src/domain/` is free of DOM and Leaflet code, so it can 
 
 Only signed-in contributors publish; reading stays public. Design document (in French): [Eaux de Saurat — architecture avec comptes](https://claude.ai/artifact/2Psru2HULaQ3KUcCp7ubp6).
 
-- **Sign-in by e-mail link, no password.** `POST /api/auth/link` mails a signed, single-use link valid 30 minutes; the first sign-in creates the account. Sessions last a year per device. Mail goes out through the association's domain mailbox (SMTP settings in `.env`).
+- **Sign-in by e-mail, no password.** `POST /api/auth/link` mails a 6-digit code and a signed link, both single-use and valid 30 minutes; the first sign-in creates the account. The code is typed in the publish form (`POST /api/auth/code`), because a phone's mail app opens the link in another browser than the site's. Only the latest code counts, kept in the cache. Sessions last a year per device. Mail goes out through the association's domain mailbox (SMTP settings in `.env`).
 - **No new table.** Django's `User` holds the account (`email`, `first_name` = display name, `is_active`). `Reading` gains `owner` and loses `edit_key_hash`; `author_name` stays and is rewritten on all of an account's readings when its name changes.
 - **Moderation after the fact, in the Django admin.** New accounts publish at once; admins can suspend an account (which ends its sessions), hide all its readings in one action, reactivate it or delete it with its readings and photo files.
-- **API.** `/api/auth/link`, `/api/auth/login`, `/api/auth/logout`, `GET/PATCH/DELETE /api/me`; `POST /api/readings` requires a session (Django Ninja `django_auth`, CSRF header) and is limited to 30 per hour per account.
+- **API.** `/api/auth/link`, `/api/auth/code`, `/api/auth/login`, `/api/auth/logout`, `GET/PATCH/DELETE /api/me`; `POST /api/readings` requires a session (Django Ninja `django_auth`, CSRF header) and is limited to 30 per hour per account.
 
 ## Not built yet
 

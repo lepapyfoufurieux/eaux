@@ -101,6 +101,7 @@ export async function fetchMe(): Promise<Me | null> {
 }
 
 export const requestSignInLink = (email: string): Promise<void> => write("/api/auth/link", "POST", { email });
+export const signInWithCode = (email: string, code: string): Promise<void> => write("/api/auth/code", "POST", { email, code });
 export const signOut = (): Promise<void> => write("/api/auth/logout", "POST");
 /** Also renames the account's readings already published. */
 export const saveName = (name: string): Promise<Me> => write("/api/me", "PATCH", { name });
